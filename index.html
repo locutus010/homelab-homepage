@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark" />
+  <title>Homelab · Mission Control</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230d0f12'/><circle cx='50' cy='50' r='20' fill='none' stroke='%23f4b740' stroke-width='8'/></svg>" />
+</head>
+<body>
+  <!-- Texture overlays -->
+  <div class="grain" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <main class="shell">
+    <!-- ===================== TOP BAR ===================== -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand__mark" aria-hidden="true">◉</span>
+        <div class="brand__text">
+          <h1 id="brand-title">HOMELAB</h1>
+          <p id="brand-subtitle">Mission Control</p>
+        </div>
+      </div>
+
+      <div class="topbar__meta">
+        <div class="clock" id="clock">
+          <span class="clock__time" id="clock-time">--:--:--</span>
+          <span class="clock__date" id="clock-date">— — —</span>
+        </div>
+        <div class="weather" id="weather" hidden>
+          <span class="weather__icon" id="weather-icon">—</span>
+          <span class="weather__temp" id="weather-temp">--°</span>
+          <span class="weather__place" id="weather-place"></span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ===================== HERO / SEARCH ===================== -->
+    <section class="hero">
+      <p class="hero__greeting" id="greeting">Welcome back.</p>
+
+      <form class="search" id="search-form" autocomplete="off" hidden>
+        <span class="search__engine" id="search-engine">DDG</span>
+        <input
+          class="search__input"
+          id="search-input"
+          type="text"
+          placeholder="Search the web   ·   press  /  to focus,  type to filter links"
+          aria-label="Search"
+          spellcheck="false"
+        />
+        <kbd class="search__hint">↵</kbd>
+      </form>
+
+      <!-- Stats strip -->
+      <div class="stats" id="stats">
+        <div class="stat">
+          <span class="stat__value" id="stat-services">0</span>
+          <span class="stat__label">Services</span>
+        </div>
+        <div class="stat">
+          <span class="stat__value stat__value--ok" id="stat-online">0</span>
+          <span class="stat__label">Online</span>
+        </div>
+        <div class="stat">
+          <span class="stat__value" id="stat-groups">0</span>
+          <span class="stat__label">Groups</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== BOOKMARK GROUPS ===================== -->
+    <section class="board" id="board" aria-live="polite"></section>
+
+    <div class="empty" id="filter-empty" hidden>
+      <span>No links match “<span id="filter-term"></span>”</span>
+    </div>
+
+    <footer class="footer">
+      <span>Edit <code>config.js</code> to add links &amp; widgets</span>
+      <span class="footer__dot">·</span>
+      <span><kbd>/</kbd> search</span>
+      <span class="footer__dot">·</span>
+      <span><kbd>Esc</kbd> clear</span>
+    </footer>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script src="settings.js"></script>
+</body>
+</html>
