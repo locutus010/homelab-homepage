@@ -15,16 +15,140 @@
 #    DELETE /api/config -> forget the saved config (back to config.js defaults)
 # =============================================================================
 
+import base64
 import json
 import os
+import re
 import sqlite3
+import ssl
 import sys
+import urllib.parse
+import urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(HERE, "homelab.db")
 API_PATH = "/api/config"
+FAVICON_PATH = "/api/favicon"
 MAX_BODY = 5 * 1024 * 1024  # generous ceiling; configs are tiny
+
+# Favicon resolution: the server fetches the target page (it can reach LAN-only
+# services the browser shows), parses its <link rel="icon"> tags and returns the
+# best absolute icon URL. This is a deliberate fetch-on-behalf-of-the-user
+# (SSRF-shaped) feature for a trusted home network — it only follows http(s),
+# and self-signed certs are tolerated since homelab services often use them.
+FETCH_TIMEOUT = 6
+ICON_MAX_BYTES = 200 * 1024  # cap embedded icons so the config stays small
+_UA = "Mozilla/5.0 (HomelabDashboard favicon fetch)"
+_SSL_CTX = ssl.create_default_context()
+_SSL_CTX.check_hostname = False
+_SSL_CTX.verify_mode = ssl.CERT_NONE
+
+_LINK_RE = re.compile(r"<link\b[^>]*>", re.IGNORECASE)
+_REL_RE = re.compile(r'rel\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
+_HREF_RE = re.compile(r'href\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
+_SIZES_RE = re.compile(r'sizes\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
+_MEDIA_RE = re.compile(r'media\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
+_EXT_MIME = {
+    ".ico": "image/x-icon", ".png": "image/png", ".svg": "image/svg+xml",
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif",
+    ".webp": "image/webp",
+}
+
+
+def _open(url):
+    req = urllib.request.Request(url, headers={"User-Agent": _UA, "Accept": "*/*"})
+    return urllib.request.urlopen(req, timeout=FETCH_TIMEOUT, context=_SSL_CTX)
+
+
+def _icon_candidates(html, base_url):
+    """Pull <link rel=...icon...> hrefs, best first.
+
+    The dashboard is a permanently dark UI, so a site's dark-mode icon variant
+    (declared via `media="(prefers-color-scheme: dark)"`) is preferred — it is
+    designed to stay legible on dark backgrounds. Light-only variants are pushed
+    to the back so they're used only when nothing better exists."""
+    scored = []
+    for tag in _LINK_RE.findall(html):
+        rel_m = _REL_RE.search(tag)
+        href_m = _HREF_RE.search(tag)
+        if not rel_m or not href_m:
+            continue
+        # Match rel *tokens*, not substrings, so "mask-icon" / "fluid-icon"
+        # (Safari pinned tab, Fluid app — not real favicons) are excluded.
+        tokens = rel_m.group(1).lower().split()
+        is_apple = any(t.startswith("apple-touch-icon") for t in tokens)
+        if "icon" not in tokens and not is_apple:
+            continue
+        href = urllib.parse.urljoin(base_url, href_m.group(1).strip())
+        score = 50 if is_apple else 0
+        media_m = _MEDIA_RE.search(tag)
+        media = media_m.group(1).lower() if media_m else ""
+        if "dark" in media:
+            score += 1000          # strongly prefer the site's dark variant
+        elif "light" in media:
+            score -= 1000          # avoid light-only icons on our dark board
+        sizes_m = _SIZES_RE.search(tag)
+        if sizes_m:
+            try:
+                score += int(sizes_m.group(1).lower().split("x")[0])
+            except ValueError:
+                pass
+        scored.append((score, href))
+    scored.sort(key=lambda t: t[0], reverse=True)
+    return [h for _, h in scored]
+
+
+def _fetch_data_uri(url):
+    """Download an icon and return it as a `data:` URI, or None if unusable."""
+    try:
+        with _open(url) as r:
+            if r.status != 200:
+                return None
+            ctype = (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+            data = r.read(ICON_MAX_BYTES + 1)
+    except Exception:
+        return None
+    if not data or len(data) > ICON_MAX_BYTES:
+        return None
+    if not ctype.startswith("image/"):
+        # Servers often mislabel icons (e.g. text/plain) — infer from the path.
+        ext = os.path.splitext(urllib.parse.urlparse(url).path.lower())[1]
+        ctype = _EXT_MIME.get(ext)
+        if not ctype:
+            return None
+    return "data:%s;base64,%s" % (ctype, base64.b64encode(data).decode("ascii"))
+
+
+def resolve_favicon(page_url):
+    """Return (icon, error). `icon` is a `data:` URI (embedded bytes), or as a
+    last resort the conventional favicon URL, or None on a bad request."""
+    parts = urllib.parse.urlparse(page_url)
+    if parts.scheme not in ("http", "https") or not parts.netloc:
+        return None, "url must be http(s)"
+
+    candidates = []
+    final_url = page_url
+    try:
+        with _open(page_url) as r:
+            final_url = r.geturl()
+            html = r.read(512 * 1024).decode("utf-8", "replace")
+        candidates = _icon_candidates(html, final_url)
+    except Exception:
+        pass  # page unreachable/unparseable — still try the default path below
+
+    fin = urllib.parse.urlparse(final_url)
+    origin = "%s://%s" % (fin.scheme, fin.netloc)
+    default_ico = origin + "/favicon.ico"
+    candidates.append(default_ico)
+
+    for cand in candidates:
+        data_uri = _fetch_data_uri(cand)
+        if data_uri:
+            return data_uri, None
+    # Couldn't embed anything — hand back the conventional path so the browser
+    # can still try to load it directly.
+    return default_ico, None
 
 
 def init_db():
@@ -108,6 +232,16 @@ class Handler(SimpleHTTPRequestHandler):
 
     # ---- routing ----------------------------------------------------------
     def do_GET(self):
+        path = self.path.split("?")[0]
+        if path == FAVICON_PATH:
+            params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            target = (params.get("url") or [""])[0].strip()
+            if not target:
+                return self._send_json(400, {"error": "missing url parameter"})
+            icon, err = resolve_favicon(target)
+            if err or not icon:
+                return self._send_json(502, {"error": err or "no icon found"})
+            return self._send_json(200, {"icon": icon})
         if self.path.split("?")[0] == API_PATH:
             data = read_config()
             if data is None:

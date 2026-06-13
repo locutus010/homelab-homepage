@@ -138,6 +138,7 @@
    * ----------------------------------------------------------------------- */
   function sectionWeather() {
     const w = set().weather || (set().weather = { enabled: false, unit: "celsius" });
+    const pip = set().publicIp || (set().publicIp = { enabled: true });
 
     const status = el("span", { class: "set-geo__status" });
     const cityInput = textInput(w.label || "", () => {}, { placeholder: "z. B. Berlin", class: "set-input set-geo__input" });
@@ -183,6 +184,9 @@
       field("Einheit", selectInput(w.unit === "fahrenheit" ? "fahrenheit" : "celsius", [
         ["celsius", "Celsius (°C)"], ["fahrenheit", "Fahrenheit (°F)"],
       ], (v) => { w.unit = v; commit(); H.refreshWeather(); })),
+      el("div", { class: "set-field" }, [
+        toggle(pip.enabled, (v) => { pip.enabled = v; commit(); }, "Öffentliche IP darunter anzeigen"),
+      ]),
     ]);
   }
 
@@ -278,7 +282,12 @@
     const links = group.links;
     return el("div", { class: "set-link" }, [
       el("div", { class: "set-link__main" }, [
-        textInput(link.icon, (v) => { link.icon = v; commit(); }, { class: "set-input set-link__icon", placeholder: "Symbol", title: "Emoji oder Bild-URL — leer = Kürzel" }),
+        textInput(link.icon, (v) => { link.icon = v; commit(); }, { class: "set-input set-link__icon", placeholder: "Symbol", title: "Emoji, Bild-URL oder „Favicon holen“ — leer = Kürzel" }),
+        el("button", {
+          type: "button", class: "set-iconbtn set-link__favicon", text: "🌐",
+          title: "Favicon von der Webseite holen",
+          onclick: (e) => fetchFavicon(link, e.currentTarget),
+        }),
         textInput(link.name, (v) => { link.name = v; commit(); }, { class: "set-input set-link__name", placeholder: "Name" }),
       ]),
       textInput(link.url, (v) => { link.url = v; commit(); }, { class: "set-input", placeholder: "https://dienst.local", type: "url" }),
@@ -298,6 +307,46 @@
       type: "button", class: "set-iconbtn " + (extra || ""), title, text: label,
       disabled: disabled || false, onclick: onClick,
     });
+  }
+
+  /* Fetch the website's favicon and drop it into the link's icon field.
+     With a server (server.py) it resolves the real <link rel=icon>; otherwise
+     it falls back to the conventional <origin>/favicon.ico. */
+  async function fetchFavicon(link, btn) {
+    const url = (link.url || "").trim();
+    if (!/^https?:\/\//i.test(url)) {
+      alert("Bitte zuerst eine vollständige Adresse (http:// oder https://) im Link eintragen.");
+      return;
+    }
+
+    const prev = btn.textContent;
+    btn.textContent = "…";
+    btn.disabled = true;
+
+    const serverEnabled = location.protocol === "http:" || location.protocol === "https:";
+    let icon = null;
+    if (serverEnabled) {
+      try {
+        const res = await fetch("/api/favicon?url=" + encodeURIComponent(url));
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.icon) icon = data.icon;
+        }
+      } catch (e) { /* fall through to the local guess */ }
+    }
+    if (!icon) {
+      try { icon = new URL(url).origin + "/favicon.ico"; } catch (e) { icon = null; }
+    }
+
+    if (!icon) {
+      btn.textContent = prev;
+      btn.disabled = false;
+      alert("Adresse konnte nicht verarbeitet werden.");
+      return;
+    }
+    link.icon = icon;
+    commit();
+    buildBookmarks();   // reflect the new icon value in the field + live preview
   }
 
   function moveItem(arr, i, dir) {
@@ -438,6 +487,10 @@
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && document.body.classList.contains("settings-open")) close();
     });
+
+    // app.js swapped the active config (server sync, import, reset) — rebuild so
+    // our section closures point at the new object instead of an orphaned one.
+    document.addEventListener("homelab:config-replaced", () => { if (body) rebuild(); });
   }
 
   function gearSvg() {

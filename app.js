@@ -51,6 +51,12 @@
     }
   }
 
+  /* Tell the UI (settings.js) that ACTIVE was swapped for a new object, so any
+     cached references into it (e.g. a section's `set().search`) get rebuilt. */
+  function notifyReplaced() {
+    document.dispatchEvent(new CustomEvent("homelab:config-replaced"));
+  }
+
   /** Immediate local cache so the page survives offline / a server restart. */
   function persistLocal() {
     try {
@@ -102,6 +108,7 @@
       persistLocal();
       render();
       loadWeather();
+      notifyReplaced();
     } catch (e) {
       console.warn("[homelab] central config unavailable, using local cache:", e.message);
     }
@@ -112,6 +119,7 @@
    * ----------------------------------------------------------------------- */
   let statusTimer = null;
   let statusRunDebounce = null;
+  let pubIpLoaded = false;
 
   window.Homelab = {
     config: () => ACTIVE,
@@ -133,6 +141,7 @@
       persist();
       render();
       loadWeather();
+      notifyReplaced();
     },
     resetDefaults() {
       try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
@@ -143,6 +152,7 @@
       ACTIVE = clone(DEFAULTS);
       render();
       loadWeather();
+      notifyReplaced();
     },
   };
 
@@ -172,6 +182,7 @@
     renderGreeting();
     renderSearchState();
     renderWeatherVisibility();
+    renderPublicIp();
     renderBoard();
     renderStats();
     scheduleStatusRun();
@@ -257,7 +268,7 @@
     const icon = document.createElement("span");
     icon.className = "link__icon";
     const raw = (link.icon || "").trim();
-    if (/^(https?:)?\/\//.test(raw) || raw.startsWith("/")) {
+    if (/^(https?:)?\/\//.test(raw) || raw.startsWith("/") || raw.startsWith("data:image")) {
       const img = document.createElement("img");
       img.src = raw; img.alt = ""; img.loading = "lazy";
       icon.appendChild(img);
@@ -510,6 +521,52 @@
     if (code <= 82) return "🌧️";
     if (code <= 86) return "❄️";
     return "⛈️";
+  }
+
+  /* --------------------------------------------------------------------------
+   *  Public IP pill (internet connection's egress IP) — under the weather widget
+   * ----------------------------------------------------------------------- */
+  function renderPublicIp() {
+    const conf = settings().publicIp || {};
+    const el = $("#pubip");
+    if (!el) return;
+    if (!conf.enabled) { el.hidden = true; return; }
+    el.hidden = false;
+    if (!pubIpLoaded) loadPublicIp();
+  }
+
+  async function loadPublicIp() {
+    pubIpLoaded = true;  // one-shot per session; reload the page to refresh
+    const out = $("#pubip-value");
+    if (out) out.textContent = "…";
+    const ip = await fetchPublicIp();
+    // Keep the pill visible either way so it never silently disappears.
+    if (out) {
+      out.textContent = ip || "n/v";
+      out.title = ip ? "" : "Öffentliche IP nicht abrufbar (Internet/Blocker?)";
+    }
+    if (!ip) {
+      pubIpLoaded = false;  // allow a retry on the next render
+      console.warn("[homelab] public IP lookup failed across all sources");
+    }
+  }
+
+  async function fetchPublicIp() {
+    // Several CORS-friendly lookups; a homelab DNS blocker (Pi-hole/AdGuard) may
+    // block some, so we try a few different providers in turn.
+    const sources = [
+      async () => (await (await fetch("https://api.ipify.org?format=json", { cache: "no-store" })).json()).ip,
+      async () => (await (await fetch("https://ipapi.co/ip/", { cache: "no-store" })).text()).trim(),
+      async () => (await (await fetch("https://api.my-ip.io/v2/ip.txt", { cache: "no-store" })).text()).trim(),
+      async () => (await (await fetch("https://icanhazip.com", { cache: "no-store" })).text()).trim(),
+    ];
+    for (const get of sources) {
+      try {
+        const ip = await get();
+        if (ip && /[0-9a-f:.]/i.test(ip)) return ip.trim();
+      } catch (e) { /* try the next provider */ }
+    }
+    return null;
   }
 
   /* --------------------------------------------------------------------------

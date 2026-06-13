@@ -181,6 +181,22 @@ body::before {
 .weather__temp { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .weather__place { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-mut); }
 
+/* Public-IP pill — same look as the weather widget, stacked beneath it */
+.weather-stack { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.pubip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink-800) 70%, transparent);
+  backdrop-filter: blur(6px);
+}
+.pubip__icon { font-size: 20px; }
+.pubip__value { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pubip__label { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-mut); }
+
 /* ============================ HERO ============================ */
 .hero {
   padding: clamp(28px, 5vw, 52px) 0 clamp(18px, 3vw, 30px);
@@ -652,6 +668,7 @@ select.set-input { cursor: pointer; appearance: none; background-image: linear-g
 }
 .set-link__main { display: flex; gap: 8px; }
 .set-link__icon { width: 64px; flex: 0 0 auto; text-align: center; }
+.set-link__favicon { align-self: stretch; height: auto; }
 .set-link__name { flex: 1; }
 .set-link__foot { display: flex; align-items: center; gap: 6px; }
 .set-link__spacer { flex: 1; }

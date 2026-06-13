@@ -36,10 +36,18 @@
           <span class="clock__time" id="clock-time">--:--:--</span>
           <span class="clock__date" id="clock-date">— — —</span>
         </div>
-        <div class="weather" id="weather" hidden>
-          <span class="weather__icon" id="weather-icon">—</span>
-          <span class="weather__temp" id="weather-temp">--°</span>
-          <span class="weather__place" id="weather-place"></span>
+        <div class="weather-stack">
+          <div class="weather" id="weather" hidden>
+            <span class="weather__icon" id="weather-icon">—</span>
+            <span class="weather__temp" id="weather-temp">--°</span>
+            <span class="weather__place" id="weather-place"></span>
+          </div>
+          <!-- Public IP of the internet connection — populated by app.js -->
+          <div class="pubip" id="pubip" hidden>
+            <span class="pubip__icon" aria-hidden="true">🌐</span>
+            <span class="pubip__value" id="pubip-value">—</span>
+            <span class="pubip__label">WAN</span>
+          </div>
         </div>
       </div>
     </header>

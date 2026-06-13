@@ -45,6 +45,12 @@ window.CONFIG = {
       longitude: 11.5755,
       unit: "celsius",           // "celsius" | "fahrenheit"
     },
+
+    // Public IP of the internet connection, shown as a pill under the weather
+    // widget. Fetched client-side from a public lookup (api.ipify.org).
+    publicIp: {
+      enabled: true,
+    },
   },
 
   /* ---------------------------------------------------------------------------

@@ -29,7 +29,7 @@ the server must remain optional and dependency-free.
 | `app.js`      | Core logic + the `window.Homelab` API. One IIFE.               |
 | `settings.js` | The on-page no-code settings drawer. One IIFE. Drives the page only through `window.Homelab`. German UI labels (Du-form). |
 | `config.js`   | **Default** data. Defines `window.CONFIG = { settings, groups }` |
-| `server.py`   | Optional stdlib server: serves the files + central settings store. `GET`/`PUT`/`DELETE /api/config` backed by SQLite (`homelab.db`). |
+| `server.py`   | Optional stdlib server: serves the files + central settings store. `GET`/`PUT`/`DELETE /api/config` backed by SQLite (`homelab.db`); `GET /api/favicon?url=` resolves a link's favicon server-side (prefers the site's dark-mode variant, embeds it as a data-URI). |
 
 ## Architecture notes
 
