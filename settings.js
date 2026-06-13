@@ -1,8 +1,10 @@
 /* =============================================================================
  *  HOMELAB START PAGE — SETTINGS PANEL
  *  A no-code settings drawer. Edits the active config (via window.Homelab),
- *  applies changes live, and autosaves to this browser. Also exports/imports
- *  a config.js file so settings can be backed up or moved to other devices.
+ *  applies changes live, and autosaves them. When the page is served by
+ *  server.py the save goes to the central SQLite store (shared across every
+ *  machine); otherwise it stays in this browser. Export/import of a config.js
+ *  file remains as an optional manual backup.
  *
  *  Language note: labels are in German (Du-form) for a non-technical owner.
  * ========================================================================== */
@@ -316,11 +318,17 @@
       onchange: (e) => importFile(e.target.files[0]),
     });
 
-    return section("Sichern & Übertragen", "Optional — deine Änderungen sind bereits in diesem Browser gespeichert", [
-      el("p", { class: "set-note", html:
-        "Alle Einstellungen werden <b>automatisch in diesem Browser</b> gespeichert. " +
-        "Zum Übertragen auf ein anderes Gerät oder als Backup kannst du eine <code>config.js</code> herunterladen " +
-        "und damit die Datei im Projektordner ersetzen." }),
+    const central = location.protocol === "http:" || location.protocol === "https:";
+    const note = central
+      ? "Alle Einstellungen werden <b>automatisch zentral gespeichert</b> (auf dem Server) und " +
+        "stehen dadurch auf <b>allen Geräten im Netzwerk</b> zur Verfügung — ein manuelles Übertragen " +
+        "per Datei ist nicht mehr nötig. Der Download unten ist nur ein optionales Backup."
+      : "Diese Seite wurde ohne Server geöffnet, daher werden die Einstellungen <b>nur in diesem Browser</b> " +
+        "gespeichert. Für die geräteübergreifende Speicherung starte den Server mit " +
+        "<code>python3 server.py</code> und öffne die Seite über dessen Adresse.";
+
+    return section("Sichern & Übertragen", "Deine Änderungen werden automatisch gespeichert", [
+      el("p", { class: "set-note", html: note }),
       el("div", { class: "set-actions" }, [
         el("button", { type: "button", class: "set-btn set-btn--accent", html: "⬇ &nbsp;config.js herunterladen", onclick: exportConfig }),
         el("button", { type: "button", class: "set-btn", html: "⬆ &nbsp;Aus Datei laden", onclick: () => importInput.click() }),

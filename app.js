@@ -3,15 +3,21 @@
  *  Renders bookmark groups from the *active* config and powers the widgets:
  *  clock, greeting, weather, web search, live status LEDs, and link filtering.
  *
- *  The active config = defaults from config.js, overlaid with the user's edits
- *  saved in this browser (localStorage). The settings panel (settings.js)
- *  mutates the active config and calls Homelab.render() to re-draw live.
+ *  The active config = defaults from config.js, overlaid with the user's saved
+ *  edits. When the page is served by server.py those edits live centrally in a
+ *  SQLite DB (shared across machines); localStorage is the offline fallback and
+ *  local cache. The settings panel (settings.js) mutates the active config and
+ *  calls Homelab.render() to re-draw live.
  * ========================================================================== */
 
 (function () {
   "use strict";
 
   const STORAGE_KEY = "homelab.config.v1";
+  const API_URL = "/api/config";
+  // The sync API only exists when a server (server.py) is serving the page.
+  // Opened directly via file:// we stay purely on localStorage.
+  const serverEnabled = location.protocol === "http:" || location.protocol === "https:";
   const $ = (sel) => document.querySelector(sel);
 
   /* --------------------------------------------------------------------------
@@ -24,7 +30,11 @@
   const groups = () => ACTIVE.groups || [];
 
   function loadActive() {
-    const saved = readSaved();
+    return mergeSaved(readSaved());
+  }
+
+  /** Overlay a saved-config object onto the defaults to form the active config. */
+  function mergeSaved(saved) {
     if (!saved) return clone(DEFAULTS);
     return {
       settings: deepMerge(clone(DEFAULTS.settings || {}), saved.settings || {}),
@@ -41,11 +51,59 @@
     }
   }
 
-  function persist() {
+  /** Immediate local cache so the page survives offline / a server restart. */
+  function persistLocal() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(ACTIVE));
     } catch (e) {
-      console.warn("[homelab] could not save settings:", e);
+      console.warn("[homelab] could not cache settings locally:", e);
+    }
+  }
+
+  function persist() {
+    persistLocal();
+    if (serverEnabled) scheduleServerSave();
+  }
+
+  /* --------------------------------------------------------------------------
+   *  Central storage (server.py + SQLite). Best-effort: any failure leaves the
+   *  localStorage cache intact, so editing never blocks on the network.
+   * ----------------------------------------------------------------------- */
+  let serverSaveTimer = null;
+
+  function scheduleServerSave() {
+    clearTimeout(serverSaveTimer);
+    serverSaveTimer = setTimeout(saveToServer, 400);
+  }
+
+  async function saveToServer() {
+    try {
+      const res = await fetch(API_URL, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(ACTIVE),
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+    } catch (e) {
+      console.warn("[homelab] could not save settings to server:", e.message);
+    }
+  }
+
+  /** Pull the central config on boot and re-render once it arrives. */
+  async function syncFromServer() {
+    if (!serverEnabled) return;
+    try {
+      const res = await fetch(API_URL, { cache: "no-store" });
+      if (res.status === 204) return;            // nothing stored yet
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const saved = await res.json();
+      ACTIVE = mergeSaved(saved);
+      persistLocal();
+      render();
+      loadWeather();
+    } catch (e) {
+      console.warn("[homelab] central config unavailable, using local cache:", e.message);
     }
   }
 
@@ -78,6 +136,10 @@
     },
     resetDefaults() {
       try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+      if (serverEnabled) {
+        fetch(API_URL, { method: "DELETE", cache: "no-store" })
+          .catch((e) => console.warn("[homelab] could not clear server config:", e.message));
+      }
       ACTIVE = clone(DEFAULTS);
       render();
       loadWeather();
@@ -91,8 +153,9 @@
     startClock();          // independent ticker, set up once
     setupSearch();         // listeners attached once, read ACTIVE at event time
     setupFilter();         // listeners attached once
-    render();              // first paint
+    render();              // first paint (from local cache / defaults)
     loadWeather();         // initial fetch
+    syncFromServer();      // overlay the central config once it loads
   }
 
   /* --------------------------------------------------------------------------

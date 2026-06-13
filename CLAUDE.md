@@ -9,10 +9,16 @@ that shows configurable bookmarks to systems on the local network, grouped
 into categories, plus widgets (clock, greeting, weather, web search, live
 service-status LEDs).
 
-**Plain HTML / CSS / JavaScript. No build step, no framework, no dependencies,
-no backend.** Do not introduce a bundler, package manager, or framework unless
-the user explicitly asks — keeping it zero-dependency and openable as a single
-file is a core constraint.
+**Plain HTML / CSS / JavaScript. No build step, no framework, no dependencies.**
+Do not introduce a bundler, package manager, or framework unless the user
+explicitly asks — keeping it zero-dependency and openable as a single file is a
+core constraint.
+
+The one exception is `server.py` (Python standard library only — no pip): an
+*optional* tiny server that both serves the files and stores settings centrally
+in SQLite so every machine on the LAN shares one config. The page still works
+fully via `file://` (and any static server) by falling back to `localStorage`;
+the server must remain optional and dependency-free.
 
 ## Files
 
@@ -23,15 +29,21 @@ file is a core constraint.
 | `app.js`      | Core logic + the `window.Homelab` API. One IIFE.               |
 | `settings.js` | The on-page no-code settings drawer. One IIFE. Drives the page only through `window.Homelab`. German UI labels (Du-form). |
 | `config.js`   | **Default** data. Defines `window.CONFIG = { settings, groups }` |
+| `server.py`   | Optional stdlib server: serves the files + central settings store. `GET`/`PUT`/`DELETE /api/config` backed by SQLite (`homelab.db`). |
 
 ## Architecture notes
 
 - **Active config vs. defaults.** `config.js` provides *defaults*. On boot
-  `app.js` overlays the user's saved edits from `localStorage`
-  (`homelab.config.v1`) to form the *active* config. Settings (objects) are
-  deep-merged so new default keys appear; `groups` (array) is taken wholesale
-  from the save if present. The active config — not `window.CONFIG` — is the
-  source of truth at runtime.
+  `app.js` overlays the user's saved edits to form the *active* config. Settings
+  (objects) are deep-merged so new default keys appear; `groups` (array) is
+  taken wholesale from the save if present. The active config — not
+  `window.CONFIG` — is the source of truth at runtime.
+- **Where saved edits live.** First paint uses the `localStorage` cache
+  (`homelab.config.v1`); then `syncFromServer()` pulls the central config from
+  `GET /api/config` and re-renders. `persist()` always writes the localStorage
+  cache immediately and, when served over http(s), debounce-`PUT`s to the
+  server (`serverEnabled`). Over `file://` the API is skipped entirely and
+  localStorage is the only store — the page stays self-contained.
 - **`window.Homelab` is the seam** between logic and UI. `settings.js` must go
   through it, never touch the DOM board or `localStorage` directly. API:
   `config()` (live mutable object), `defaults()`, `apply()` (persist + render),

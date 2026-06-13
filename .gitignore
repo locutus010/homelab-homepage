@@ -1,0 +1,9 @@
+# Central settings store created at runtime by server.py
+homelab.db
+homelab.db-journal
+homelab.db-wal
+homelab.db-shm
+
+# Python
+__pycache__/
+*.pyc
