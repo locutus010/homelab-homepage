@@ -16,9 +16,12 @@
 # =============================================================================
 
 import base64
+import hmac
+import ipaddress
 import json
 import os
 import re
+import socket
 import sqlite3
 import ssl
 import sys
@@ -32,6 +35,11 @@ API_PATH = "/api/config"
 FAVICON_PATH = "/api/favicon"
 MAX_BODY = 5 * 1024 * 1024  # generous ceiling; configs are tiny
 
+# Optional write protection. When HOMELAB_TOKEN is set, PUT/DELETE on the config
+# require it (header "X-Homelab-Token" or "Authorization: Bearer <token>").
+# Unset (the default) keeps the endpoint open for a trusted LAN — unchanged.
+AUTH_TOKEN = os.environ.get("HOMELAB_TOKEN", "").strip()
+
 # Favicon resolution: the server fetches the target page (it can reach LAN-only
 # services the browser shows), parses its <link rel="icon"> tags and returns the
 # best absolute icon URL. This is a deliberate fetch-on-behalf-of-the-user
@@ -43,6 +51,42 @@ _UA = "Mozilla/5.0 (HomelabDashboard favicon fetch)"
 _SSL_CTX = ssl.create_default_context()
 _SSL_CTX.check_hostname = False
 _SSL_CTX.verify_mode = ssl.CERT_NONE
+
+# SSRF containment for the favicon fetcher. By default every host is allowed
+# EXCEPT link-local / cloud-metadata addresses (e.g. 169.254.169.254), which are
+# always blocked. Set HOMELAB_FAVICON_ALLOW to a comma-separated list of hosts
+# (matched exactly or as a parent domain) to restrict fetching to just those.
+FAVICON_ALLOW = [h.strip().lower() for h in
+                 os.environ.get("HOMELAB_FAVICON_ALLOW", "").split(",") if h.strip()]
+
+
+def _host_allowed(host):
+    host = (host or "").lower()
+    if FAVICON_ALLOW and not any(host == a or host.endswith("." + a) for a in FAVICON_ALLOW):
+        return False
+    try:  # always block cloud-metadata / link-local, even when on the allowlist
+        for res in socket.getaddrinfo(host, None):
+            if ipaddress.ip_address(res[4][0]).is_link_local:
+                return False
+    except OSError:
+        return False
+    return True
+
+
+class _GuardRedirect(urllib.request.HTTPRedirectHandler):
+    """Re-check the target of every redirect so a page can't 30x us onto a
+    blocked host (e.g. the metadata endpoint)."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not _host_allowed(urllib.parse.urlparse(newurl).hostname):
+            return None
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+# Custom opener: carries the (cert-tolerant) SSL context AND the guarded
+# redirect handler, replacing the default urlopen behaviour.
+_OPENER = urllib.request.build_opener(
+    urllib.request.HTTPSHandler(context=_SSL_CTX), _GuardRedirect())
 
 _LINK_RE = re.compile(r"<link\b[^>]*>", re.IGNORECASE)
 _REL_RE = re.compile(r'rel\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
@@ -57,8 +101,12 @@ _EXT_MIME = {
 
 
 def _open(url):
+    # Validate every URL we fetch — this also covers the icon candidates parsed
+    # out of the page's own <link> tags, not just the initial page URL.
+    if not _host_allowed(urllib.parse.urlparse(url).hostname):
+        raise ValueError("host not allowed")
     req = urllib.request.Request(url, headers={"User-Agent": _UA, "Accept": "*/*"})
-    return urllib.request.urlopen(req, timeout=FETCH_TIMEOUT, context=_SSL_CTX)
+    return _OPENER.open(req, timeout=FETCH_TIMEOUT)
 
 
 def _icon_candidates(html, base_url):
@@ -230,6 +278,15 @@ class Handler(SimpleHTTPRequestHandler):
             return None
         return self.rfile.read(length)
 
+    def _authorized(self):
+        if not AUTH_TOKEN:
+            return True  # open on a trusted LAN (default)
+        given = self.headers.get("X-Homelab-Token", "")
+        auth = self.headers.get("Authorization", "")
+        if not given and auth.startswith("Bearer "):
+            given = auth[7:]
+        return hmac.compare_digest(given, AUTH_TOKEN)
+
     # ---- routing ----------------------------------------------------------
     def do_GET(self):
         path = self.path.split("?")[0]
@@ -262,6 +319,8 @@ class Handler(SimpleHTTPRequestHandler):
     def do_PUT(self):
         if self.path.split("?")[0] != API_PATH:
             return self._send_empty(405)
+        if not self._authorized():
+            return self._send_json(401, {"error": "unauthorized"})
         raw = self._read_body()
         if raw is None:
             return self._send_json(400, {"error": "empty or oversized body"})
@@ -281,6 +340,8 @@ class Handler(SimpleHTTPRequestHandler):
     def do_DELETE(self):
         if self.path.split("?")[0] != API_PATH:
             return self._send_empty(405)
+        if not self._authorized():
+            return self._send_json(401, {"error": "unauthorized"})
         delete_config()
         return self._send_json(200, {"ok": True})
 

@@ -14,6 +14,9 @@
   "use strict";
 
   const STORAGE_KEY = "homelab.config.v1";
+  // Held apart from the synced config on purpose: the token must NOT be PUT back
+  // to the server, and it stays per-browser (localStorage only).
+  const TOKEN_KEY = "homelab.token";
   const API_URL = "/api/config";
   // The sync API only exists when a server (server.py) is serving the page.
   // Opened directly via file:// we stay purely on localStorage.
@@ -77,6 +80,17 @@
    * ----------------------------------------------------------------------- */
   let serverSaveTimer = null;
 
+  /* Optional write token (only needed if server.py runs with HOMELAB_TOKEN). */
+  function readToken() {
+    try { return localStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; }
+  }
+  function apiHeaders(base) {
+    const h = Object.assign({}, base || {});
+    const t = readToken();
+    if (t) h["X-Homelab-Token"] = t;
+    return h;
+  }
+
   function scheduleServerSave() {
     clearTimeout(serverSaveTimer);
     serverSaveTimer = setTimeout(saveToServer, 400);
@@ -86,7 +100,7 @@
     try {
       const res = await fetch(API_URL, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: apiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(ACTIVE),
         cache: "no-store",
       });
@@ -120,6 +134,8 @@
   let statusTimer = null;
   let statusRunDebounce = null;
   let pubIpLoaded = false;
+  let pubIpInFlight = false;
+  let pubIpRetry = null;
 
   window.Homelab = {
     config: () => ACTIVE,
@@ -143,10 +159,19 @@
       loadWeather();
       notifyReplaced();
     },
+    /** Per-browser write token (only relevant when the server enforces one). */
+    getToken: readToken,
+    setToken(t) {
+      try {
+        const v = (t || "").trim();
+        if (v) localStorage.setItem(TOKEN_KEY, v);
+        else localStorage.removeItem(TOKEN_KEY);
+      } catch (e) { console.warn("[homelab] could not store token:", e); }
+    },
     resetDefaults() {
       try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
       if (serverEnabled) {
-        fetch(API_URL, { method: "DELETE", cache: "no-store" })
+        fetch(API_URL, { method: "DELETE", headers: apiHeaders(), cache: "no-store" })
           .catch((e) => console.warn("[homelab] could not clear server config:", e.message));
       }
       ACTIVE = clone(DEFAULTS);
@@ -259,7 +284,7 @@
   function buildLink(link) {
     const a = document.createElement("a");
     a.className = "link";
-    a.href = link.url || "#";
+    a.href = safeHref(link.url);
     a.target = "_blank";
     a.rel = "noopener noreferrer";
     a.dataset.name = (link.name || "").toLowerCase();
@@ -532,22 +557,36 @@
     if (!el) return;
     if (!conf.enabled) { el.hidden = true; return; }
     el.hidden = false;
-    if (!pubIpLoaded) loadPublicIp();
+    if (!pubIpLoaded && !pubIpInFlight) loadPublicIp();
   }
 
   async function loadPublicIp() {
-    pubIpLoaded = true;  // one-shot per session; reload the page to refresh
+    if (pubIpInFlight) return;   // never run two lookups at once
+    pubIpInFlight = true;
     const out = $("#pubip-value");
     if (out) out.textContent = "…";
-    const ip = await fetchPublicIp();
+    let ip = null;
+    try {
+      ip = await fetchPublicIp();
+    } finally {
+      pubIpInFlight = false;
+    }
     // Keep the pill visible either way so it never silently disappears.
     if (out) {
       out.textContent = ip || "n/v";
       out.title = ip ? "" : "Öffentliche IP nicht abrufbar (Internet/Blocker?)";
     }
-    if (!ip) {
-      pubIpLoaded = false;  // allow a retry on the next render
+    if (ip) {
+      pubIpLoaded = true;  // one-shot per session; reload the page to refresh
+    } else {
+      // A single delayed retry — NOT one per re-render, which would storm the
+      // network with 4 provider calls on every keystroke while editing.
       console.warn("[homelab] public IP lookup failed across all sources");
+      clearTimeout(pubIpRetry);
+      pubIpRetry = setTimeout(() => {
+        const c = settings().publicIp || {};
+        if (c.enabled) loadPublicIp();
+      }, 30000);
     }
   }
 
@@ -562,8 +601,10 @@
     ];
     for (const get of sources) {
       try {
-        const ip = await get();
-        if (ip && /[0-9a-f:.]/i.test(ip)) return ip.trim();
+        const ip = (await get() || "").trim();
+        // Whole string must look like an IPv4/IPv6 literal — guards against a
+        // provider returning an HTML error body with a stray "." in it.
+        if (/^[0-9a-f.:]+$/i.test(ip) && ip.length >= 3 && ip.length <= 45) return ip;
       } catch (e) { /* try the next provider */ }
     }
     return null;
@@ -588,6 +629,15 @@
   }
   function isPlainObject(v) {
     return v && typeof v === "object" && !Array.isArray(v);
+  }
+
+  /** Block script-y URL schemes on link hrefs (defense-in-depth for imported
+   *  configs). http(s), protocol-relative, site-relative and host:port pass. */
+  function safeHref(url) {
+    const u = String(url || "").trim();
+    if (!u) return "#";
+    if (/^\s*(javascript|data|vbscript|file):/i.test(u)) return "#";
+    return u;
   }
 
   function escapeHtml(str) {
