@@ -134,6 +134,8 @@
   let statusTimer = null;
   let statusRunDebounce = null;
   let pubIpLoaded = false;
+  let pubIpInFlight = false;
+  let pubIpRetry = null;
 
   window.Homelab = {
     config: () => ACTIVE,
@@ -282,7 +284,7 @@
   function buildLink(link) {
     const a = document.createElement("a");
     a.className = "link";
-    a.href = link.url || "#";
+    a.href = safeHref(link.url);
     a.target = "_blank";
     a.rel = "noopener noreferrer";
     a.dataset.name = (link.name || "").toLowerCase();
@@ -555,22 +557,36 @@
     if (!el) return;
     if (!conf.enabled) { el.hidden = true; return; }
     el.hidden = false;
-    if (!pubIpLoaded) loadPublicIp();
+    if (!pubIpLoaded && !pubIpInFlight) loadPublicIp();
   }
 
   async function loadPublicIp() {
-    pubIpLoaded = true;  // one-shot per session; reload the page to refresh
+    if (pubIpInFlight) return;   // never run two lookups at once
+    pubIpInFlight = true;
     const out = $("#pubip-value");
     if (out) out.textContent = "…";
-    const ip = await fetchPublicIp();
+    let ip = null;
+    try {
+      ip = await fetchPublicIp();
+    } finally {
+      pubIpInFlight = false;
+    }
     // Keep the pill visible either way so it never silently disappears.
     if (out) {
       out.textContent = ip || "n/v";
       out.title = ip ? "" : "Öffentliche IP nicht abrufbar (Internet/Blocker?)";
     }
-    if (!ip) {
-      pubIpLoaded = false;  // allow a retry on the next render
+    if (ip) {
+      pubIpLoaded = true;  // one-shot per session; reload the page to refresh
+    } else {
+      // A single delayed retry — NOT one per re-render, which would storm the
+      // network with 4 provider calls on every keystroke while editing.
       console.warn("[homelab] public IP lookup failed across all sources");
+      clearTimeout(pubIpRetry);
+      pubIpRetry = setTimeout(() => {
+        const c = settings().publicIp || {};
+        if (c.enabled) loadPublicIp();
+      }, 30000);
     }
   }
 
@@ -585,8 +601,10 @@
     ];
     for (const get of sources) {
       try {
-        const ip = await get();
-        if (ip && /[0-9a-f:.]/i.test(ip)) return ip.trim();
+        const ip = (await get() || "").trim();
+        // Whole string must look like an IPv4/IPv6 literal — guards against a
+        // provider returning an HTML error body with a stray "." in it.
+        if (/^[0-9a-f.:]+$/i.test(ip) && ip.length >= 3 && ip.length <= 45) return ip;
       } catch (e) { /* try the next provider */ }
     }
     return null;
@@ -611,6 +629,15 @@
   }
   function isPlainObject(v) {
     return v && typeof v === "object" && !Array.isArray(v);
+  }
+
+  /** Block script-y URL schemes on link hrefs (defense-in-depth for imported
+   *  configs). http(s), protocol-relative, site-relative and host:port pass. */
+  function safeHref(url) {
+    const u = String(url || "").trim();
+    if (!u) return "#";
+    if (/^\s*(javascript|data|vbscript|file):/i.test(u)) return "#";
+    return u;
   }
 
   function escapeHtml(str) {
