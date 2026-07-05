@@ -16,9 +16,11 @@
 # =============================================================================
 
 import base64
+import ipaddress
 import json
 import os
 import re
+import socket
 import sqlite3
 import ssl
 import sys
@@ -44,6 +46,42 @@ _SSL_CTX = ssl.create_default_context()
 _SSL_CTX.check_hostname = False
 _SSL_CTX.verify_mode = ssl.CERT_NONE
 
+# SSRF containment for the favicon fetcher. By default every host is allowed
+# EXCEPT link-local / cloud-metadata addresses (e.g. 169.254.169.254), which are
+# always blocked. Set HOMELAB_FAVICON_ALLOW to a comma-separated list of hosts
+# (matched exactly or as a parent domain) to restrict fetching to just those.
+FAVICON_ALLOW = [h.strip().lower() for h in
+                 os.environ.get("HOMELAB_FAVICON_ALLOW", "").split(",") if h.strip()]
+
+
+def _host_allowed(host):
+    host = (host or "").lower()
+    if FAVICON_ALLOW and not any(host == a or host.endswith("." + a) for a in FAVICON_ALLOW):
+        return False
+    try:  # always block cloud-metadata / link-local, even when on the allowlist
+        for res in socket.getaddrinfo(host, None):
+            if ipaddress.ip_address(res[4][0]).is_link_local:
+                return False
+    except OSError:
+        return False
+    return True
+
+
+class _GuardRedirect(urllib.request.HTTPRedirectHandler):
+    """Re-check the target of every redirect so a page can't 30x us onto a
+    blocked host (e.g. the metadata endpoint)."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not _host_allowed(urllib.parse.urlparse(newurl).hostname):
+            return None
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+# Custom opener: carries the (cert-tolerant) SSL context AND the guarded
+# redirect handler, replacing the default urlopen behaviour.
+_OPENER = urllib.request.build_opener(
+    urllib.request.HTTPSHandler(context=_SSL_CTX), _GuardRedirect())
+
 _LINK_RE = re.compile(r"<link\b[^>]*>", re.IGNORECASE)
 _REL_RE = re.compile(r'rel\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
 _HREF_RE = re.compile(r'href\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
@@ -57,8 +95,12 @@ _EXT_MIME = {
 
 
 def _open(url):
+    # Validate every URL we fetch — this also covers the icon candidates parsed
+    # out of the page's own <link> tags, not just the initial page URL.
+    if not _host_allowed(urllib.parse.urlparse(url).hostname):
+        raise ValueError("host not allowed")
     req = urllib.request.Request(url, headers={"User-Agent": _UA, "Accept": "*/*"})
-    return urllib.request.urlopen(req, timeout=FETCH_TIMEOUT, context=_SSL_CTX)
+    return _OPENER.open(req, timeout=FETCH_TIMEOUT)
 
 
 def _icon_candidates(html, base_url):
