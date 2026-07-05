@@ -16,6 +16,7 @@
 # =============================================================================
 
 import base64
+import hmac
 import ipaddress
 import json
 import os
@@ -33,6 +34,11 @@ DB_PATH = os.path.join(HERE, "homelab.db")
 API_PATH = "/api/config"
 FAVICON_PATH = "/api/favicon"
 MAX_BODY = 5 * 1024 * 1024  # generous ceiling; configs are tiny
+
+# Optional write protection. When HOMELAB_TOKEN is set, PUT/DELETE on the config
+# require it (header "X-Homelab-Token" or "Authorization: Bearer <token>").
+# Unset (the default) keeps the endpoint open for a trusted LAN — unchanged.
+AUTH_TOKEN = os.environ.get("HOMELAB_TOKEN", "").strip()
 
 # Favicon resolution: the server fetches the target page (it can reach LAN-only
 # services the browser shows), parses its <link rel="icon"> tags and returns the
@@ -272,6 +278,15 @@ class Handler(SimpleHTTPRequestHandler):
             return None
         return self.rfile.read(length)
 
+    def _authorized(self):
+        if not AUTH_TOKEN:
+            return True  # open on a trusted LAN (default)
+        given = self.headers.get("X-Homelab-Token", "")
+        auth = self.headers.get("Authorization", "")
+        if not given and auth.startswith("Bearer "):
+            given = auth[7:]
+        return hmac.compare_digest(given, AUTH_TOKEN)
+
     # ---- routing ----------------------------------------------------------
     def do_GET(self):
         path = self.path.split("?")[0]
@@ -304,6 +319,8 @@ class Handler(SimpleHTTPRequestHandler):
     def do_PUT(self):
         if self.path.split("?")[0] != API_PATH:
             return self._send_empty(405)
+        if not self._authorized():
+            return self._send_json(401, {"error": "unauthorized"})
         raw = self._read_body()
         if raw is None:
             return self._send_json(400, {"error": "empty or oversized body"})
@@ -323,6 +340,8 @@ class Handler(SimpleHTTPRequestHandler):
     def do_DELETE(self):
         if self.path.split("?")[0] != API_PATH:
             return self._send_empty(405)
+        if not self._authorized():
+            return self._send_json(401, {"error": "unauthorized"})
         delete_config()
         return self._send_json(200, {"ok": True})
 

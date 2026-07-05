@@ -376,8 +376,22 @@
         "gespeichert. Für die geräteübergreifende Speicherung starte den Server mit " +
         "<code>python3 server.py</code> und öffne die Seite über dessen Adresse.";
 
+    // Only meaningful with a server; the token guards central PUT/DELETE when
+    // server.py runs with HOMELAB_TOKEN set. Stored per-browser, never synced.
+    const tokenField = central
+      ? field("Schreib-Token (optional)",
+          el("input", {
+            class: "set-input", type: "password", autocomplete: "off",
+            placeholder: "nur nötig, wenn der Server ein Token verlangt",
+            value: H.getToken ? H.getToken() : "",
+            oninput: (e) => { if (H.setToken) H.setToken(e.target.value); },
+          }),
+          "Muss zum HOMELAB_TOKEN des Servers passen, sonst schlägt das Speichern fehl.")
+      : document.createTextNode("");
+
     return section("Sichern & Übertragen", "Deine Änderungen werden automatisch gespeichert", [
       el("p", { class: "set-note", html: note }),
+      tokenField,
       el("div", { class: "set-actions" }, [
         el("button", { type: "button", class: "set-btn set-btn--accent", html: "⬇ &nbsp;config.js herunterladen", onclick: exportConfig }),
         el("button", { type: "button", class: "set-btn", html: "⬆ &nbsp;Aus Datei laden", onclick: () => importInput.click() }),

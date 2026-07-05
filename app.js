@@ -14,6 +14,9 @@
   "use strict";
 
   const STORAGE_KEY = "homelab.config.v1";
+  // Held apart from the synced config on purpose: the token must NOT be PUT back
+  // to the server, and it stays per-browser (localStorage only).
+  const TOKEN_KEY = "homelab.token";
   const API_URL = "/api/config";
   // The sync API only exists when a server (server.py) is serving the page.
   // Opened directly via file:// we stay purely on localStorage.
@@ -77,6 +80,17 @@
    * ----------------------------------------------------------------------- */
   let serverSaveTimer = null;
 
+  /* Optional write token (only needed if server.py runs with HOMELAB_TOKEN). */
+  function readToken() {
+    try { return localStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; }
+  }
+  function apiHeaders(base) {
+    const h = Object.assign({}, base || {});
+    const t = readToken();
+    if (t) h["X-Homelab-Token"] = t;
+    return h;
+  }
+
   function scheduleServerSave() {
     clearTimeout(serverSaveTimer);
     serverSaveTimer = setTimeout(saveToServer, 400);
@@ -86,7 +100,7 @@
     try {
       const res = await fetch(API_URL, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: apiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(ACTIVE),
         cache: "no-store",
       });
@@ -143,10 +157,19 @@
       loadWeather();
       notifyReplaced();
     },
+    /** Per-browser write token (only relevant when the server enforces one). */
+    getToken: readToken,
+    setToken(t) {
+      try {
+        const v = (t || "").trim();
+        if (v) localStorage.setItem(TOKEN_KEY, v);
+        else localStorage.removeItem(TOKEN_KEY);
+      } catch (e) { console.warn("[homelab] could not store token:", e); }
+    },
     resetDefaults() {
       try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
       if (serverEnabled) {
-        fetch(API_URL, { method: "DELETE", cache: "no-store" })
+        fetch(API_URL, { method: "DELETE", headers: apiHeaders(), cache: "no-store" })
           .catch((e) => console.warn("[homelab] could not clear server config:", e.message));
       }
       ACTIVE = clone(DEFAULTS);
