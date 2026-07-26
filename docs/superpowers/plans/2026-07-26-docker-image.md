@@ -156,7 +156,6 @@ Written first so the very first build has a small context and can never pick up 
 .git
 .gitignore
 .github
-.claude
 docs
 __pycache__
 *.pyc
@@ -466,7 +465,7 @@ git commit -m "CI: Multi-Arch-Image nach GHCR veröffentlichen"
 
 **Files:**
 - Modify: `README.md` — add a "Run with Docker" section after the existing "Run it" section
-- Modify: `CLAUDE.md` — add `Dockerfile` / `compose.yaml` rows to the Files table and note `HOMELAB_DB`
+- Modify: `docs/architecture.md` — add `Dockerfile` / `compose.yaml` rows to the Files table and note `HOMELAB_DB`
 
 **Interfaces:**
 - Consumes: everything from Tasks 1-3.
@@ -507,7 +506,7 @@ To ship your own default `config.js`, mount it over the one in the image:
 `-v ./config.js:/app/config.js:ro`.
 ````
 
-- [ ] **Step 2: Update the CLAUDE.md Files table**
+- [ ] **Step 2: Update the architecture doc Files table**
 
 Add these rows to the table:
 
@@ -516,7 +515,7 @@ Add these rows to the table:
 | `compose.yaml` | One service on port 8080 with the `homelab-data` volume; env vars commented out as examples. |
 ```
 
-- [ ] **Step 3: Note the DB path in CLAUDE.md**
+- [ ] **Step 3: Note the DB path in the architecture doc**
 
 In the "Where saved edits live" bullet of "Architecture notes", append:
 
@@ -536,8 +535,8 @@ Expected: matches in the new section.
 - [ ] **Step 5: Commit and open the pull request**
 
 ```bash
-git add README.md CLAUDE.md docs/superpowers/plans/2026-07-26-docker-image.md
-git commit -m "Doku: Docker-Betrieb in README und CLAUDE.md"
+git add README.md docs/architecture.md docs/superpowers/plans/2026-07-26-docker-image.md
+git commit -m "Doku: Docker-Betrieb in README und Architekturdoku"
 git push -u origin docker-image
 gh pr create --title "Docker-Image für die Startseite" --body "$(cat <<'EOF'
 Macht das Projekt als Container lauffähig — inklusive `server.py`, also mit
@@ -549,14 +548,13 @@ zentraler Settings-Ablage und Favicon-Auflösung.
   über die stdlib, DB unter `/data`.
 - `compose.yaml`: Port 8080, benanntes Volume `homelab-data`.
 - CI: Multi-Arch-Build (amd64 + arm64) nach `ghcr.io`, PRs bauen nur.
-- README und CLAUDE.md ergänzt.
+- README und Architekturdoku ergänzt.
 
 Lokal auf Docker getestet: Build, healthy, Seite lädt, Config-Roundtrip,
 Persistenz über Recreate, `HOMELAB_TOKEN` gibt 401 ohne Token, non-root,
 `/homelab.db` nicht abrufbar, arm64-Cross-Build. Der Workflow selbst lässt
 sich erst nach dem Merge auf `main` verifizieren.
 
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
 ```

@@ -87,7 +87,7 @@ opt-in hardening for an otherwise trusted LAN.
 
 ### .dockerignore
 
-Excludes `.git`, `__pycache__`, `homelab.db*`, `.claude`, `docs`, and the
+Excludes `.git`, `__pycache__`, `homelab.db*`, `docs`, and the
 Markdown files. It keeps the build context small and, more importantly, stops a
 developer's local `homelab.db` from being copied into a published image.
 
@@ -130,7 +130,7 @@ only observable after the workflow runs on `main`.
 ## Documentation
 
 A "Run with Docker" section in `README.md` covering `docker compose up -d`, the
-volume, and the environment variables. Two lines in `CLAUDE.md` recording that
+volume, and the environment variables. Two lines in `docs/architecture.md` recording that
 the Docker files exist and that `HOMELAB_DB` is the reason `DB_PATH` is no
 longer a constant.
 
