@@ -242,6 +242,12 @@ an auto-generated monogram.
 | `settings.js` | The on-page settings panel (no-code editor) |
 | `config.js`   | **Default** links, groups, and settings  |
 | `server.py`   | **Optional** stdlib server: serves the files + central SQLite settings store + favicon resolver |
+| `Dockerfile`  | Container image (`python:3.13-alpine`, no pip)          |
+| `compose.yaml` | Compose file that builds the image locally             |
+| `portainer-stack.yml` | Compose file for Portainer stacks — pulls the published image |
+
+For how the parts fit together and which constraints to keep when changing
+things, see [`docs/architecture.md`](docs/architecture.md).
 
 > Note: once you edit anything in the settings panel, those edits take priority
 > over `config.js` — stored centrally when the server runs, otherwise in your

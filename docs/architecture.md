@@ -1,6 +1,7 @@
-# CLAUDE.md
+# Architecture
 
-Guidance for working in this repository.
+Guidance for working in this repository — how the pieces fit together and
+which constraints to keep when changing things.
 
 ## What this is
 
