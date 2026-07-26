@@ -13,6 +13,8 @@
 #    GET  /api/config  -> 200 {settings, groups}  or  204 if nothing saved yet
 #    PUT  /api/config  -> store the posted JSON as the active config
 #    DELETE /api/config -> forget the saved config (back to config.js defaults)
+#  Writes require Content-Type: application/json and must not be cross-site;
+#  see _same_origin() for why both matter.
 # =============================================================================
 
 import base64
@@ -309,6 +311,30 @@ class Handler(SimpleHTTPRequestHandler):
             given = auth[7:]
         return hmac.compare_digest(given, AUTH_TOKEN)
 
+    def _same_origin(self):
+        """Reject cross-site writes — CSRF protection for the config endpoint.
+
+        Without this, any page the user happens to visit can POST a whole new
+        config here: a body with a CORS-safelisted content type (`text/plain`)
+        is a "simple request", so the browser sends it cross-origin with no
+        preflight to block it. The response stays opaque to the attacker, but
+        the write already happened — enough to silently repoint every bookmark
+        on the start page at a phishing clone.
+
+        Browsers label the request themselves via `Sec-Fetch-Site`, and send
+        `Origin` on every non-GET cross-origin request (covering browsers
+        without the newer header). Requests carrying neither — curl, scripts,
+        the container healthcheck — are still allowed: the LAN trust model is
+        unchanged, only the "any website you visit" path is closed.
+        """
+        site = self.headers.get("Sec-Fetch-Site", "")
+        if site and site not in ("same-origin", "none"):
+            return False
+        origin = self.headers.get("Origin", "")
+        if origin and urllib.parse.urlparse(origin).netloc != self.headers.get("Host", ""):
+            return False
+        return True
+
     # ---- routing ----------------------------------------------------------
     def do_GET(self):
         path = self.path.split("?")[0]
@@ -346,6 +372,15 @@ class Handler(SimpleHTTPRequestHandler):
     def do_PUT(self):
         if self.path.split("?")[0] != API_PATH:
             return self._send_empty(405)
+        if not self._same_origin():
+            return self._send_json(403, {"error": "cross-site request refused"})
+        # Insisting on a JSON content type is the second half of the CSRF guard:
+        # it is not CORS-safelisted, so a cross-origin browser request has to
+        # ask permission via a preflight first — which fails, because nothing
+        # here answers with CORS headers.
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            return self._send_json(415, {"error": "Content-Type must be application/json"})
         if not self._authorized():
             return self._send_json(401, {"error": "unauthorized"})
         raw = self._read_body()
@@ -367,6 +402,8 @@ class Handler(SimpleHTTPRequestHandler):
     def do_DELETE(self):
         if self.path.split("?")[0] != API_PATH:
             return self._send_empty(405)
+        if not self._same_origin():
+            return self._send_json(403, {"error": "cross-site request refused"})
         if not self._authorized():
             return self._send_json(401, {"error": "unauthorized"})
         delete_config()

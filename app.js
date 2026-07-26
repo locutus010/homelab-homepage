@@ -379,7 +379,10 @@
       if (!value) return;
       const { engine, query } = resolve(value);
       if (engine && engine.url) {
-        window.location.href = engine.url.replace("%s", encodeURIComponent(query));
+        // Same scheme guard as the bookmark links: an engine URL also comes
+        // from the config, so a "javascript:" one would otherwise run here.
+        const target = safeHref(engine.url.replace("%s", encodeURIComponent(query)));
+        if (target !== "#") window.location.href = target;
       }
     });
   }
@@ -632,11 +635,21 @@
   }
 
   /** Block script-y URL schemes on link hrefs (defense-in-depth for imported
-   *  configs). http(s), protocol-relative, site-relative and host:port pass. */
+   *  configs). http(s), protocol-relative, site-relative and host:port pass.
+   *
+   *  Testing the raw string is not enough: the browser's URL parser strips
+   *  every tab/newline anywhere in the value and any leading control
+   *  characters, so "jav<TAB>ascript:alert(1)" reaches it as a live
+   *  "javascript:" URL while sailing past a naive scheme check. Normalise the
+   *  same way *first*, and hand back the normalised form — that is what the
+   *  browser would navigate to anyway. Interior spaces are left alone; the
+   *  parser percent-encodes rather than removes them. */
   function safeHref(url) {
-    const u = String(url || "").trim();
+    const u = String(url || "")
+      .replace(/[\t\n\r]/g, "")
+      .replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, "");
     if (!u) return "#";
-    if (/^\s*(javascript|data|vbscript|file):/i.test(u)) return "#";
+    if (/^(javascript|data|vbscript|file):/i.test(u)) return "#";
     return u;
   }
 

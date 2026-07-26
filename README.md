@@ -223,6 +223,12 @@ It's deliberately tiny and **standard-library only** (no `pip`). The API:
 | `DELETE` | `/api/config`          | Forget it (back to `config.js` defaults)     |
 | `GET`    | `/api/favicon?url=`    | Resolve a link's favicon (see below)         |
 
+Both writes are refused (`403`) when the browser marks the request as
+cross-site, and `PUT` requires `Content-Type: application/json` (`415`
+otherwise) — together that stops any page you happen to visit from quietly
+rewriting your bookmarks. Scripting the API with `curl` still works; just send
+the JSON content type.
+
 Host/port can be set via `HOMELAB_HOST` / `HOMELAB_PORT` (or `server.py <port>`),
 defaulting to `0.0.0.0:8080`. `HOMELAB_DB` moves the SQLite file elsewhere —
 that is how the container keeps it on a volume. `HOMELAB_TOKEN` and
