@@ -211,7 +211,9 @@ It's deliberately tiny and **standard-library only** (no `pip`). The API:
 | `GET`    | `/api/favicon?url=`    | Resolve a link's favicon (see below)         |
 
 Host/port can be set via `HOMELAB_HOST` / `HOMELAB_PORT` (or `server.py <port>`),
-defaulting to `0.0.0.0:8080`.
+defaulting to `0.0.0.0:8080`. `HOMELAB_DB` moves the SQLite file elsewhere —
+that is how the container keeps it on a volume. `HOMELAB_TOKEN` and
+`HOMELAB_FAVICON_ALLOW` work here too; see the table above.
 
 > Security note: `server.py` is meant for a **trusted home LAN**. The favicon
 > endpoint fetches URLs on your behalf (it tolerates self-signed certs that
@@ -251,5 +253,5 @@ things, see [`docs/architecture.md`](docs/architecture.md).
 
 > Note: once you edit anything in the settings panel, those edits take priority
 > over `config.js` — stored centrally when the server runs, otherwise in your
-> browser. Use **„Zurücksetzen“** in the panel to go back to whatever
-> `config.js` contains.
+> browser. Use **„Auf Werkseinstellungen zurücksetzen“** in the panel to go back
+> to whatever `config.js` contains.

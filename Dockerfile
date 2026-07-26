@@ -6,8 +6,7 @@ FROM python:3.13-alpine
 
 LABEL org.opencontainers.image.title="Homelab Start Page" \
       org.opencontainers.image.description="Self-hosted homelab start page with central settings storage" \
-      org.opencontainers.image.source="https://github.com/locutus010/homelab-homepage" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.source="https://github.com/locutus010/homelab-homepage"
 
 # Unprivileged user. /data is created here and owned by it so a named volume
 # mounted there inherits usable ownership.
@@ -31,8 +30,10 @@ VOLUME ["/data"]
 
 # No curl in the base image, and installing one just for this would pull in a
 # package manager step. urllib from the standard library does the same job.
+# The port is read from the environment so that changing HOMELAB_PORT does not
+# leave a working container reporting itself unhealthy.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/', timeout=4).read(1)"]
+  CMD ["python3", "-c", "import os, urllib.request; p = os.environ.get('HOMELAB_PORT', '8080'); urllib.request.urlopen('http://127.0.0.1:' + p + '/', timeout=4).read(1)"]
 
 # -u keeps the server's prints unbuffered so they appear in `docker logs`.
 CMD ["python3", "-u", "server.py"]
