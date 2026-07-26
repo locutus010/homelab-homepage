@@ -23,6 +23,14 @@ window.CONFIG = {
     statusTimeoutMs: 4000,
     statusIntervalMs: 60000,     // Re-check every 60s
 
+    // The number strip under the search bar: how many services are watched,
+    // how many groups there are, and how many of the watched ones are
+    // currently up / down. It reads out the status checks above, so it stays
+    // hidden whenever `statusCheck` is off.
+    stats: {
+      enabled: true,
+    },
+
     // Web search bar. Type and press Enter. Use a bang prefix to switch
     // engine on the fly, e.g. "!g cats" -> Google, "!d cats" -> DuckDuckGo.
     search: {

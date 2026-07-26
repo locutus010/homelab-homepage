@@ -38,6 +38,12 @@
 
 * { box-sizing: border-box; }
 
+/* Widgets are toggled with the `hidden` attribute. The browser's own
+ * `[hidden] { display: none }` loses to *any* author rule, so every widget
+ * that sets `display` (.search, .weather, .pubip …) would stay visible
+ * without this. Keep it above the layout rules it has to beat. */
+[hidden] { display: none !important; }
+
 html { scroll-behavior: smooth; }
 
 body {
@@ -283,7 +289,8 @@ body::before {
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
-.stat__value--ok { color: var(--ok); }
+.stat__value--ok   { color: var(--ok); }
+.stat__value--down { color: var(--down); }
 .stat__label {
   font-family: var(--mono);
   font-size: 10px;

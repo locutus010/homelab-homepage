@@ -276,7 +276,7 @@
 
     // Re-apply any active filter text after a rebuild.
     const input = $("#search-input");
-    if (input && input.value.trim() && !input.value.startsWith("!")) {
+    if (input && filterTerm(input.value)) {
       input.dispatchEvent(new Event("input"));
     }
   }
@@ -339,14 +339,29 @@
    *  Stats strip
    * ----------------------------------------------------------------------- */
   function renderStats() {
-    const all = groups().flatMap((g) => g.links || []);
-    $("#stat-services").textContent = all.length;
+    const el = $("#stats");
+    const conf = settings().stats || {};
+    // The strip reports on the status checks, so it only makes sense while
+    // those run — "0 online / 0 offline" with checking off would be a lie.
+    const show = conf.enabled !== false && !!settings().statusCheck;
+    el.hidden = !show;
+    if (!show) return;
+
+    // Only links flagged `ping: true` are actually watched; the rest are
+    // plain bookmarks and would inflate the count.
+    const monitored = groups()
+      .flatMap((g) => g.links || [])
+      .filter((link) => link && link.ping).length;
+    $("#stat-monitored").textContent = monitored;
     $("#stat-groups").textContent = groups().length;
-    updateOnlineCount();
+    updateStatusCounts();
   }
 
-  function updateOnlineCount() {
+  /* Online + offline can be short of the monitored total while checks are
+   * still in flight — those LEDs are neither up nor down yet. */
+  function updateStatusCounts() {
     $("#stat-online").textContent = document.querySelectorAll(".led--up").length;
+    $("#stat-offline").textContent = document.querySelectorAll(".led--down").length;
   }
 
   /* --------------------------------------------------------------------------
@@ -369,12 +384,21 @@
     };
 
     input.addEventListener("input", () => {
+      // In filter mode the badge shows where Enter goes: a link, not an engine.
+      if (filterTerm(input.value) !== null) { badge.textContent = "GO"; return; }
       const { engine } = resolve(input.value.trim());
       badge.textContent = shortLabel(engine && engine.label);
     });
 
     form.addEventListener("submit", (e) => {
       e.preventDefault();
+      // Filter mode: open the first remaining link instead of handing the
+      // whole "/…" string to a search engine.
+      if (filterTerm(input.value) !== null) {
+        const first = $("#board").querySelector(".link:not(.is-hidden)");
+        if (first) first.click();
+        return;
+      }
       const value = input.value.trim();
       if (!value) return;
       const { engine, query } = resolve(value);
@@ -392,6 +416,11 @@
     const form = $("#search-form");
     form.hidden = !conf.enabled;
     if (!conf.enabled) return;
+    // Don't stomp the filter-mode badge on an unrelated re-render.
+    if (filterTerm($("#search-input").value) !== null) {
+      $("#search-engine").textContent = "GO";
+      return;
+    }
     const engines = conf.engines || {};
     const fallback = engines[conf.defaultEngine] || Object.values(engines)[0];
     $("#search-engine").textContent = shortLabel(fallback && fallback.label);
@@ -404,17 +433,28 @@
   }
 
   /* --------------------------------------------------------------------------
-   *  Live link filtering ("/" to focus, type to filter)
+   *  Live link filtering ("/" starts a filter, type to narrow it down)
    * ----------------------------------------------------------------------- */
+
+  /* Filtering is opt-in: the field stays a plain web-search box until the
+   * value starts with "/", the same way "!" switches search engine. Returns
+   * the search term ("" for a bare "/"), or null when this isn't a filter. */
+  function filterTerm(value) {
+    if (!value.startsWith("/")) return null;
+    return value.slice(1).trim().toLowerCase();
+  }
+
   function setupFilter() {
     const input = $("#search-input");
+    const form = $("#search-form");
     const board = $("#board");
     const emptyEl = $("#filter-empty");
     const termEl = $("#filter-term");
 
     input.addEventListener("input", () => {
-      const q = input.value.trim().toLowerCase();
-      if (!q || input.value.startsWith("!")) { clearFilter(); return; }
+      const q = filterTerm(input.value);
+      // A bare "/" is filter mode with nothing typed yet — show everything.
+      if (!q) { clearFilter(); return; }
       filter(q);
     });
 
@@ -439,6 +479,10 @@
     }
 
     document.addEventListener("keydown", (e) => {
+      // With the search bar switched off there is nothing to focus — typing
+      // into an invisible field would just swallow the keystrokes.
+      if (form.hidden) return;
+
       // Ignore shortcuts while the settings panel is open or another field is focused.
       const inSettings = document.body.classList.contains("settings-open");
       const tag = (document.activeElement && document.activeElement.tagName) || "";
@@ -446,7 +490,14 @@
 
       if (e.key === "/" && document.activeElement !== input && !inSettings && !typingElsewhere) {
         e.preventDefault();
+        // Seed the "/" so filter mode is visible in the field; keep whatever
+        // is already typed rather than clobbering it.
+        if (!input.value) {
+          input.value = "/";
+          input.dispatchEvent(new Event("input"));
+        }
         input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
       } else if (e.key === "Escape" && !inSettings && document.activeElement === input) {
         input.value = "";
         input.dispatchEvent(new Event("input"));
@@ -502,7 +553,7 @@
   function setLed(led, up) {
     led.className = "led " + (up ? "led--up" : "led--down");
     led.title = up ? "Online" : "Unreachable";
-    updateOnlineCount();
+    updateStatusCounts();
   }
 
   /* --------------------------------------------------------------------------

@@ -46,7 +46,7 @@
           <div class="pubip" id="pubip" hidden>
             <span class="pubip__icon" aria-hidden="true">🌐</span>
             <span class="pubip__value" id="pubip-value">—</span>
-            <span class="pubip__label">WAN</span>
+            <span class="pubip__label">WAN IP</span>
           </div>
         </div>
       </div>
@@ -62,26 +62,30 @@
           class="search__input"
           id="search-input"
           type="text"
-          placeholder="Search the web   ·   press  /  to focus,  type to filter links"
+          placeholder="Search the web   ·   start with  /  to filter your links"
           aria-label="Search"
           spellcheck="false"
         />
         <kbd class="search__hint">↵</kbd>
       </form>
 
-      <!-- Stats strip -->
-      <div class="stats" id="stats">
+      <!-- Stats strip — a readout of the status checks, hidden without them -->
+      <div class="stats" id="stats" hidden>
         <div class="stat">
-          <span class="stat__value" id="stat-services">0</span>
-          <span class="stat__label">Services</span>
+          <span class="stat__value" id="stat-monitored">0</span>
+          <span class="stat__label">Monitored</span>
+        </div>
+        <div class="stat">
+          <span class="stat__value" id="stat-groups">0</span>
+          <span class="stat__label">Groups</span>
         </div>
         <div class="stat">
           <span class="stat__value stat__value--ok" id="stat-online">0</span>
           <span class="stat__label">Online</span>
         </div>
         <div class="stat">
-          <span class="stat__value" id="stat-groups">0</span>
-          <span class="stat__label">Groups</span>
+          <span class="stat__value stat__value--down" id="stat-offline">0</span>
+          <span class="stat__label">Offline</span>
         </div>
       </div>
     </section>
@@ -94,9 +98,9 @@
     </div>
 
     <footer class="footer">
-      <span>Edit <code>config.js</code> to add links &amp; widgets</span>
+      <span>Copyright by locutus010</span>
       <span class="footer__dot">·</span>
-      <span><kbd>/</kbd> search</span>
+      <span><kbd>/</kbd> filter links</span>
       <span class="footer__dot">·</span>
       <span><kbd>Esc</kbd> clear</span>
     </footer>

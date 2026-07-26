@@ -209,9 +209,15 @@
 
   function sectionStatus() {
     const s = set();
+    const st = s.stats || (s.stats = { enabled: true });
     return section("Statusprüfung", "Grüne/rote Punkte zeigen, ob ein Dienst erreichbar ist", [
       el("div", { class: "set-field" }, [
         toggle(s.statusCheck, (v) => { s.statusCheck = v; commit(); }, "Status-Punkte anzeigen"),
+      ]),
+      el("div", { class: "set-field" }, [
+        toggle(st.enabled, (v) => { st.enabled = v; commit(); }, "Zahlenleiste anzeigen"),
+        el("span", { class: "set-field__hint",
+          text: "Überwacht / Gruppen / Online / Offline unter der Suchleiste. Ohne Statusprüfung immer aus." }),
       ]),
       field("Prüfintervall (Sekunden)",
         el("input", {

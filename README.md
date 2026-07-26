@@ -131,7 +131,8 @@ no technical knowledge required — can change:
 - **Allgemein**: title, subtitle, your name (greeting), accent color (picker), language, 24h clock
 - **Wetter**: turn it on and just type your city — coordinates are looked up automatically. °C / °F, and the toggle for the public (WAN) IP pill lives here too, since it sits right below the weather
 - **Suche**: toggle the search bar and pick the default engine
-- **Statusprüfung**: toggle the status LEDs and set how often they re-check
+- **Statusprüfung**: toggle the status LEDs, show or hide the number strip
+  (monitored / groups / online / offline), and set how often they re-check
 - **Lesezeichen**: add / edit / delete / reorder groups and links — and **„Favicon holen“ (🌐)** auto-fetches a link's site icon
 - **Sichern & Übertragen**: the optional write token, download a `config.js` backup or load one in, and reset everything to factory settings
 
@@ -185,12 +186,15 @@ All under `settings` in `config.js`:
 | `weather`      | Weather widget via [open-meteo](https://open-meteo.com) — no API key. Set your `latitude` / `longitude` |
 | `publicIp`     | Show your public (WAN) IP as a pill under the weather. `{ enabled: true }` |
 | `statusCheck`  | Live reachability LEDs for links with `ping: true`                  |
+| `stats`        | The number strip (monitored / groups / online / offline). `{ enabled: true }` — only shown while `statusCheck` is on |
 
 ## Keyboard
 
 - <kbd>/</kbd> or just start typing — focus the search bar
-- typing a plain word **filters your links** live
-- a query with a space or a `!bang` runs a **web search** instead
+- a plain word runs a **web search** — <kbd>Enter</kbd> sends it to your engine
+- start the line with **`/`** to **filter your links** live instead; <kbd>Enter</kbd>
+  then opens the first match (the badge switches to `GO`)
+- a `!bang` prefix picks a different **search engine** for that one query
 - <kbd>Esc</kbd> — clear & blur
 
 ## How the status LEDs work
