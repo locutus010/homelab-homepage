@@ -16,3 +16,4 @@ homelab.db-shm
 Dockerfile
 .dockerignore
 compose.yaml
+portainer-stack.yml

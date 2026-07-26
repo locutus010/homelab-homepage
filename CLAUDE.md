@@ -31,7 +31,8 @@ the server must remain optional and dependency-free.
 | `config.js`   | **Default** data. Defines `window.CONFIG = { settings, groups }` |
 | `server.py`   | Optional stdlib server: serves the files + central settings store. `GET`/`PUT`/`DELETE /api/config` backed by SQLite (`homelab.db`); `GET /api/favicon?url=` resolves a link's favicon server-side (prefers the site's dark-mode variant, embeds it as a data-URI). |
 | `Dockerfile`  | Container image: `python:3.13-alpine`, runs `server.py` as uid 1000, DB on the `/data` volume. No pip, no build stage — keep it that way (Alpine is only safe *because* nothing is compiled). |
-| `compose.yaml` | One service on port 8080 with the `homelab-data` volume; the env vars are commented-out examples. |
+| `compose.yaml` | One service on port 8080 with the `homelab-data` volume; the env vars are commented-out examples. Builds locally (`build: .`). |
+| `portainer-stack.yml` | Same service for Portainer stacks: pulls the GHCR image instead of building (Portainer's web editor has no build context) and exposes the env vars as `${VAR:-default}` so they can be set in the stack UI. Keep it in sync with `compose.yaml`. |
 
 ## Architecture notes
 
