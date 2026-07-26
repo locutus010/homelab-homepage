@@ -89,7 +89,20 @@ the server must remain optional and dependency-free.
 
 ## Testing
 
-No test framework. `node` is not available in this environment. To sanity-check
-JS, use a tokenizer-aware brace/paren balance check rather than a naive one
-(regex literals and comments break naive checkers). Otherwise verify visually
-by serving the folder: `python3 -m http.server 8080`.
+No test framework, but `node` is available (v22) — use it. `node --check
+<file>` catches syntax errors, and since the browser-independent helpers are
+plain functions inside the IIFE, they can be pulled out of the source and
+exercised directly:
+
+```js
+const src = require("fs").readFileSync("app.js", "utf8");
+const start = src.indexOf("function safeHref(url)");
+const safeHref = new Function(
+  src.slice(start, src.indexOf("\n  }", start) + 4) + "; return safeHref;")();
+```
+
+That tests the shipping code rather than a copy of it. Where `node` is missing,
+fall back to a tokenizer-aware brace/paren balance check rather than a naive one
+(regex literals and comments break naive checkers). For anything touching the
+DOM, verify visually by serving the folder: `python3 -m http.server 8080`, or
+`python3 server.py` when the sync API is involved.
