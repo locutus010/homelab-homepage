@@ -1,0 +1,18 @@
+.git
+.gitignore
+.github
+.claude
+docs
+__pycache__
+*.pyc
+
+# Never bake a developer's local settings database into an image
+homelab.db
+homelab.db-journal
+homelab.db-wal
+homelab.db-shm
+
+*.md
+Dockerfile
+.dockerignore
+compose.yaml

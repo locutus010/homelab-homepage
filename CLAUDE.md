@@ -30,6 +30,8 @@ the server must remain optional and dependency-free.
 | `settings.js` | The on-page no-code settings drawer. One IIFE. Drives the page only through `window.Homelab`. German UI labels (Du-form). |
 | `config.js`   | **Default** data. Defines `window.CONFIG = { settings, groups }` |
 | `server.py`   | Optional stdlib server: serves the files + central settings store. `GET`/`PUT`/`DELETE /api/config` backed by SQLite (`homelab.db`); `GET /api/favicon?url=` resolves a link's favicon server-side (prefers the site's dark-mode variant, embeds it as a data-URI). |
+| `Dockerfile`  | Container image: `python:3.13-slim`, runs `server.py` as uid 1000, DB on the `/data` volume. No pip, no build stage — keep it that way. |
+| `compose.yaml` | One service on port 8080 with the `homelab-data` volume; the env vars are commented-out examples. |
 
 ## Architecture notes
 
@@ -44,6 +46,8 @@ the server must remain optional and dependency-free.
   cache immediately and, when served over http(s), debounce-`PUT`s to the
   server (`serverEnabled`). Over `file://` the API is skipped entirely and
   localStorage is the only store — the page stays self-contained.
+  The server's SQLite file defaults to `homelab.db` next to the web files;
+  `HOMELAB_DB` overrides it, which is how the container keeps it on a volume.
 - **`window.Homelab` is the seam** between logic and UI. `settings.js` must go
   through it, never touch the DOM board or `localStorage` directly. API:
   `config()` (live mutable object), `defaults()`, `apply()` (persist + render),

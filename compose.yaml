@@ -1,0 +1,25 @@
+services:
+  homelab-homepage:
+    build: .
+    image: ghcr.io/locutus010/homelab-homepage:latest
+    container_name: homelab-homepage
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Your settings (homelab.db) live here and survive an image update.
+      - homelab-data:/data
+    # Optional hardening — uncomment the block to use it.
+    #
+    # environment:
+    #   # Require a token for changing the settings (PUT/DELETE /api/config).
+    #   # Leave it out on a trusted LAN — that is the default behaviour.
+    #   HOMELAB_TOKEN: "change-me"
+    #   # Restrict the server-side favicon fetch to these hosts (comma
+    #   # separated, parent domains match). Left out, every host is allowed
+    #   # except link-local and cloud-metadata addresses, which are always
+    #   # blocked.
+    #   HOMELAB_FAVICON_ALLOW: "nas.lan,router.lan"
+
+volumes:
+  homelab-data:
