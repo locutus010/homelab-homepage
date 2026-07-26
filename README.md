@@ -34,6 +34,38 @@ Standard library only — no `pip`, no dependencies. See
 
 Set it as your browser's home / new-tab page once you're happy with it.
 
+## Run with Docker
+
+The image runs the sync server, so central settings and the favicon lookup work
+out of the box:
+
+```bash
+docker compose up -d             # then open http://<this-host>:8080/
+```
+
+Or without compose:
+
+```bash
+docker run -d --name homelab-homepage -p 8080:8080 \
+  -v homelab-data:/data --restart unless-stopped \
+  ghcr.io/locutus010/homelab-homepage:latest
+```
+
+Your settings live in the `/data` volume as `homelab.db` and survive an image
+update. Published for `linux/amd64` and `linux/arm64`, so a Raspberry Pi works
+too.
+
+| Variable                | Default            | Purpose                                              |
+| ----------------------- | ------------------ | ---------------------------------------------------- |
+| `HOMELAB_DB`            | `/data/homelab.db` | Where the settings database is stored                |
+| `HOMELAB_PORT`          | `8080`             | Port inside the container                            |
+| `HOMELAB_HOST`          | `0.0.0.0`          | Bind address                                         |
+| `HOMELAB_TOKEN`         | unset              | When set, changing settings requires this token      |
+| `HOMELAB_FAVICON_ALLOW` | unset              | Comma-separated hosts the favicon fetch may reach    |
+
+To ship your own default `config.js`, mount it over the one in the image:
+`-v ./config.js:/app/config.js:ro`.
+
 ## Edit everything from the page (no code)
 
 Click the **⚙ gear** (top right) to open the settings panel. From there anyone —
