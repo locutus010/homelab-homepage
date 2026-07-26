@@ -30,7 +30,11 @@ import urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(HERE, "homelab.db")
+# Where the settings live. Defaults to a file next to the web files, which is
+# what a bare `python3 server.py` has always done. Set HOMELAB_DB to move it
+# elsewhere — the container image points it at a mounted volume so the config
+# survives an image update.
+DB_PATH = os.environ.get("HOMELAB_DB", "").strip() or os.path.join(HERE, "homelab.db")
 API_PATH = "/api/config"
 FAVICON_PATH = "/api/favicon"
 MAX_BODY = 5 * 1024 * 1024  # generous ceiling; configs are tiny
@@ -201,6 +205,7 @@ def resolve_favicon(page_url):
 
 def init_db():
     """Create the single-row config table if it does not exist yet."""
+    os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
     con = sqlite3.connect(DB_PATH)
     try:
         con.execute(
