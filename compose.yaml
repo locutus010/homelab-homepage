@@ -1,7 +1,10 @@
 services:
   homelab-homepage:
     build: .
-    image: ghcr.io/locutus010/homelab-homepage:latest
+    # Deliberately NOT the ghcr.io tag: sharing that name means compose reuses a
+    # previously pulled image instead of building, so your edits never show up.
+    # Use `docker compose up -d --build` after changing any file.
+    image: homelab-homepage:local
     container_name: homelab-homepage
     restart: unless-stopped
     ports:

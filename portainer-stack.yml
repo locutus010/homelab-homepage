@@ -14,8 +14,11 @@ services:
     image: ghcr.io/locutus010/homelab-homepage:latest
     restart: unless-stopped
     ports:
-      # Host port only — the container always listens on 8080 internally.
-      - "${HOMELAB_PORT:-8080}:8080"
+      # Host port only — the container always listens on 8080 internally. This
+      # is deliberately not called HOMELAB_PORT: that variable is the server's
+      # own listen port, and overloading the name here would silently break the
+      # mapping for anyone who set it expecting the documented meaning.
+      - "${HOMELAB_HOST_PORT:-8080}:8080"
     volumes:
       # Your settings (homelab.db) live here and survive an image update.
       - homelab-data:/data

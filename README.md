@@ -44,14 +44,18 @@ There are two compose files, and which one you want depends on how you deploy:
 
 | File                  | Use it when                                                        |
 | --------------------- | ------------------------------------------------------------------ |
-| `compose.yaml`        | You have the repository checked out. Builds the image locally.      |
+| `compose.yaml`        | You have the repository checked out. Builds the image locally as `homelab-homepage:local`. |
 | `portainer-stack.yml` | You deploy through Portainer, or want to pull the published image instead of building. |
 
 ### With the repository checked out
 
 ```bash
-docker compose up -d             # then open http://<this-host>:8080/
+docker compose up -d --build     # then open http://<this-host>:8080/
 ```
+
+`--build` is the habit worth keeping: without it compose reuses the existing
+`homelab-homepage:local` image and your edits to `config.js` and friends never
+reach the container.
 
 ### Without cloning anything
 
@@ -93,16 +97,25 @@ survive an image update or a container recreate.
 | Variable                | Default            | Purpose                                            |
 | ----------------------- | ------------------ | -------------------------------------------------- |
 | `HOMELAB_DB`            | `/data/homelab.db` | Where the settings database is stored              |
-| `HOMELAB_PORT`          | `8080`             | Port inside the container                          |
-| `HOMELAB_HOST`          | `0.0.0.0`          | Bind address                                       |
+| `HOMELAB_PORT`          | `8080`             | Port the server listens on *inside* the container  |
+| `HOMELAB_HOST`          | `0.0.0.0`          | Bind address — leave this alone in a container     |
 | `HOMELAB_TOKEN`         | unset              | When set, changing settings requires this token    |
 | `HOMELAB_FAVICON_ALLOW` | unset              | Comma-separated hosts the favicon fetch may reach; parent domains match |
 
-In `portainer-stack.yml`, `HOMELAB_PORT` sets the **host** port (the container
-always listens on 8080 internally). Leaving `HOMELAB_TOKEN` and
-`HOMELAB_FAVICON_ALLOW` empty means "off", which is the sensible default on a
-trusted LAN. Link-local and cloud-metadata addresses are blocked for the
-favicon fetch either way.
+To change the port you reach the page on, change the **left** side of the port
+mapping (`-p 9000:8080`), not `HOMELAB_PORT` — that one only moves the listener
+inside the container and you would have to change the mapping to match anyway.
+`portainer-stack.yml` exposes the host side as its own variable,
+`HOMELAB_HOST_PORT`.
+
+Do not set `HOMELAB_HOST` in a container. Binding to `127.0.0.1` makes the page
+unreachable from outside while the container still reports itself healthy — the
+server *is* running, just only on the container's own loopback. Any other
+address fails to bind at all.
+
+Leaving `HOMELAB_TOKEN` and `HOMELAB_FAVICON_ALLOW` empty means "off", which is
+the sensible default on a trusted LAN. Link-local and cloud-metadata addresses
+are blocked for the favicon fetch either way.
 
 If you set `HOMELAB_TOKEN`, enter the same value under **Sichern & Übertragen →
 Schreib-Token** in the settings panel, or the page cannot save.

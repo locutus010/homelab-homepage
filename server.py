@@ -21,6 +21,7 @@ import ipaddress
 import json
 import os
 import re
+import signal
 import socket
 import sqlite3
 import ssl
@@ -271,6 +272,22 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _is_database(self):
+        """True when the request resolves to the settings database.
+
+        Comparing URL text against the file's basename is not enough: the base
+        handler percent-decodes the path *after* such a check (so `/homela%62.db`
+        slipped through), and HOMELAB_DB may point somewhere inside the served
+        folder. Resolve the request to a real filesystem path instead, and cover
+        SQLite's sidecar files too.
+        """
+        try:
+            target = os.path.realpath(self.translate_path(self.path))
+        except Exception:
+            return False
+        db = os.path.realpath(DB_PATH)
+        return target == db or target.startswith(db + "-")
+
     def _send_empty(self, code):
         self.send_response(code)
         self.send_header("Content-Length", "0")
@@ -317,9 +334,14 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.write(body)
             return
         # Don't let clients fetch the database itself.
-        if self.path.split("?")[0].lstrip("/") == os.path.basename(DB_PATH):
+        if self._is_database():
             return self._send_empty(404)
         return super().do_GET()
+
+    def do_HEAD(self):
+        if self._is_database():
+            return self._send_empty(404)
+        return super().do_HEAD()
 
     def do_PUT(self):
         if self.path.split("?")[0] != API_PATH:
@@ -356,10 +378,28 @@ class Handler(SimpleHTTPRequestHandler):
             super().log_message(fmt, *args)
 
 
+def _stop(signum, frame):
+    """Turn SIGTERM into the same clean exit Ctrl-C already takes.
+
+    Python only installs a handler for SIGINT, and the kernel drops signals with
+    a default disposition sent to PID 1 — so without this a containerised server
+    ignores `docker stop` and gets SIGKILLed after the 10s grace period.
+    """
+    raise KeyboardInterrupt
+
+
 def main():
-    host = os.environ.get("HOMELAB_HOST", "0.0.0.0")
-    port = int(os.environ.get("HOMELAB_PORT", sys.argv[1] if len(sys.argv) > 1 else 8080))
+    # An empty value means "not set" for every knob here — a blank field in a
+    # Portainer stack or `-e HOMELAB_PORT=` should not crash the server.
+    host = os.environ.get("HOMELAB_HOST", "").strip() or "0.0.0.0"
+    port_env = os.environ.get("HOMELAB_PORT", "").strip()
+    port_arg = sys.argv[1] if len(sys.argv) > 1 else "8080"
+    try:
+        port = int(port_env or port_arg)
+    except ValueError:
+        sys.exit(f"Invalid port: {port_env or port_arg!r}")
     init_db()
+    signal.signal(signal.SIGTERM, _stop)
     server = ThreadingHTTPServer((host, port), Handler)
     shown = host if host != "0.0.0.0" else "<this-host>"
     print(f"Homelab dashboard on  http://{shown}:{port}/")
