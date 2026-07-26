@@ -1,7 +1,8 @@
 # Homelab start page — runs the optional sync server (server.py) so every
 # device on the LAN shares one configuration. Python standard library only:
-# there is nothing to build and nothing to pip install.
-FROM python:3.13-slim
+# there is nothing to build and nothing to pip install. Alpine is safe here
+# precisely because of that — no wheels are compiled, so musl never bites.
+FROM python:3.13-alpine
 
 LABEL org.opencontainers.image.title="Homelab Start Page" \
       org.opencontainers.image.description="Self-hosted homelab start page with central settings storage" \
@@ -10,8 +11,8 @@ LABEL org.opencontainers.image.title="Homelab Start Page" \
 
 # Unprivileged user. /data is created here and owned by it so a named volume
 # mounted there inherits usable ownership.
-RUN groupadd --gid 1000 homelab \
-    && useradd --uid 1000 --gid 1000 --no-create-home --shell /usr/sbin/nologin homelab \
+RUN addgroup -g 1000 homelab \
+    && adduser -u 1000 -G homelab -D -H -s /sbin/nologin homelab \
     && mkdir -p /data \
     && chown homelab:homelab /data
 
@@ -28,7 +29,7 @@ USER homelab
 EXPOSE 8080
 VOLUME ["/data"]
 
-# The slim image has no curl, and installing one just for this would pull in a
+# No curl in the base image, and installing one just for this would pull in a
 # package manager step. urllib from the standard library does the same job.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/', timeout=4).read(1)"]
