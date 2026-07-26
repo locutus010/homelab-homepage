@@ -1,0 +1,32 @@
+# Homelab start page — Portainer stack.
+#
+# Portainer → Stacks → Add stack → Web editor, paste this file, Deploy.
+#
+# This exists next to compose.yaml because that one uses `build: .` and
+# Portainer's web editor has no build context. Here the image is pulled
+# ready-made from GHCR instead, so nothing is built on your host.
+#
+# The ${...} defaults below mean this file deploys as-is. To change one, add it
+# under "Environment variables" in the stack editor before deploying.
+
+services:
+  homelab-homepage:
+    image: ghcr.io/locutus010/homelab-homepage:latest
+    restart: unless-stopped
+    ports:
+      # Host port only — the container always listens on 8080 internally.
+      - "${HOMELAB_PORT:-8080}:8080"
+    volumes:
+      # Your settings (homelab.db) live here and survive an image update.
+      - homelab-data:/data
+    environment:
+      # Empty means "off", which is the right default on a trusted LAN.
+      # HOMELAB_TOKEN: require this token to change settings.
+      HOMELAB_TOKEN: "${HOMELAB_TOKEN:-}"
+      # HOMELAB_FAVICON_ALLOW: restrict the server-side favicon fetch to these
+      # hosts (comma separated, parent domains match). Empty allows every host
+      # except link-local and cloud-metadata addresses, which are always blocked.
+      HOMELAB_FAVICON_ALLOW: "${HOMELAB_FAVICON_ALLOW:-}"
+
+volumes:
+  homelab-data:

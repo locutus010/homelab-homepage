@@ -37,13 +37,23 @@ Set it as your browser's home / new-tab page once you're happy with it.
 ## Run with Docker
 
 The image runs the sync server, so central settings and the favicon lookup work
-out of the box:
+out of the box. It is published for `linux/amd64` and `linux/arm64`, so a
+Raspberry Pi works too.
+
+There are two compose files, and which one you want depends on how you deploy:
+
+| File                  | Use it when                                                        |
+| --------------------- | ------------------------------------------------------------------ |
+| `compose.yaml`        | You have the repository checked out. Builds the image locally.      |
+| `portainer-stack.yml` | You deploy through Portainer, or want to pull the published image instead of building. |
+
+### With the repository checked out
 
 ```bash
 docker compose up -d             # then open http://<this-host>:8080/
 ```
 
-Or without compose:
+### Without cloning anything
 
 ```bash
 docker run -d --name homelab-homepage -p 8080:8080 \
@@ -51,17 +61,51 @@ docker run -d --name homelab-homepage -p 8080:8080 \
   ghcr.io/locutus010/homelab-homepage:latest
 ```
 
-Your settings live in the `/data` volume as `homelab.db` and survive an image
-update. Published for `linux/amd64` and `linux/arm64`, so a Raspberry Pi works
-too.
+### With Portainer
 
-| Variable                | Default            | Purpose                                              |
-| ----------------------- | ------------------ | ---------------------------------------------------- |
-| `HOMELAB_DB`            | `/data/homelab.db` | Where the settings database is stored                |
-| `HOMELAB_PORT`          | `8080`             | Port inside the container                            |
-| `HOMELAB_HOST`          | `0.0.0.0`          | Bind address                                         |
-| `HOMELAB_TOKEN`         | unset              | When set, changing settings requires this token      |
-| `HOMELAB_FAVICON_ALLOW` | unset              | Comma-separated hosts the favicon fetch may reach    |
+Use `portainer-stack.yml`, not `compose.yaml`. `compose.yaml` uses `build: .`,
+which the **Web editor** cannot do — it has no repository to build from. (The
+**Repository** build method clones this repo and *could* build, but pulling the
+ready-made multi-arch image is faster and spares a Raspberry Pi the build.)
+
+**Web editor (simplest):**
+
+1. **Stacks → Add stack**, give it a name (e.g. `homelab-homepage`).
+2. Build method **Web editor**, then paste the contents of
+   `portainer-stack.yml`.
+3. Optionally add environment variables (see the table below) — the file has
+   working defaults, so you can skip this.
+4. **Deploy the stack**, then open `http://<this-host>:8080/`.
+
+**From this repository instead:** build method **Repository**, URL
+`https://github.com/locutus010/homelab-homepage`, reference
+`refs/heads/main`, compose path `portainer-stack.yml`. Portainer then redeploys
+from git whenever you ask it to.
+
+Updating later: **Stacks → your stack → Update the stack**, tick
+*Re-pull image*. Your settings are on the volume and are not touched.
+
+### Settings and environment
+
+Your settings live in the `homelab-data` volume as `/data/homelab.db` and
+survive an image update or a container recreate.
+
+| Variable                | Default            | Purpose                                            |
+| ----------------------- | ------------------ | -------------------------------------------------- |
+| `HOMELAB_DB`            | `/data/homelab.db` | Where the settings database is stored              |
+| `HOMELAB_PORT`          | `8080`             | Port inside the container                          |
+| `HOMELAB_HOST`          | `0.0.0.0`          | Bind address                                       |
+| `HOMELAB_TOKEN`         | unset              | When set, changing settings requires this token    |
+| `HOMELAB_FAVICON_ALLOW` | unset              | Comma-separated hosts the favicon fetch may reach; parent domains match |
+
+In `portainer-stack.yml`, `HOMELAB_PORT` sets the **host** port (the container
+always listens on 8080 internally). Leaving `HOMELAB_TOKEN` and
+`HOMELAB_FAVICON_ALLOW` empty means "off", which is the sensible default on a
+trusted LAN. Link-local and cloud-metadata addresses are blocked for the
+favicon fetch either way.
+
+If you set `HOMELAB_TOKEN`, enter the same value under **Sichern & Übertragen →
+Schreib-Token** in the settings panel, or the page cannot save.
 
 To ship your own default `config.js`, mount it over the one in the image:
 `-v ./config.js:/app/config.js:ro`.
