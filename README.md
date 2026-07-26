@@ -129,11 +129,11 @@ Click the **⚙ gear** (top right) to open the settings panel. From there anyone
 no technical knowledge required — can change:
 
 - **Allgemein**: title, subtitle, your name (greeting), accent color (picker), language, 24h clock
-- **Wetter**: turn it on and just type your city — coordinates are looked up automatically
-- **Suche** / **Statusprüfung**: toggle the search bar and the status LEDs
-- **Öffentliche IP**: show / hide your current WAN IP pill
+- **Wetter**: turn it on and just type your city — coordinates are looked up automatically. °C / °F, and the toggle for the public (WAN) IP pill lives here too, since it sits right below the weather
+- **Suche**: toggle the search bar and pick the default engine
+- **Statusprüfung**: toggle the status LEDs and set how often they re-check
 - **Lesezeichen**: add / edit / delete / reorder groups and links — and **„Favicon holen“ (🌐)** auto-fetches a link's site icon
-- **Sichern & Übertragen**: download a `config.js` backup or load one in
+- **Sichern & Übertragen**: the optional write token, download a `config.js` backup or load one in, and reset everything to factory settings
 
 Changes apply **instantly** and are saved **automatically**. Without the server
 they live in your browser (localStorage); with `server.py` they are stored
