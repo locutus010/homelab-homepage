@@ -18,7 +18,8 @@ RUN addgroup -g 1000 homelab \
 WORKDIR /app
 
 # Only the runtime files. Everything else is excluded via .dockerignore.
-COPY index.html styles.css app.js lang.js settings.js config.js server.py ./
+# LICENSE rides along because MIT requires the notice to travel with any copy.
+COPY index.html styles.css app.js lang.js settings.js config.js server.py LICENSE ./
 
 ENV HOMELAB_DB=/data/homelab.db \
     HOMELAB_HOST=0.0.0.0 \
