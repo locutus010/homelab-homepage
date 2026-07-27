@@ -172,6 +172,30 @@ groups: [
 - an image URL — `icon: "/icons/jellyfin.png"` or `https://…`
 - omitted — an auto-generated colored monogram from the name
 
+## Languages
+
+The start page and the settings drawer have **separate** languages. Both are set
+in the settings drawer under *General*, and both default to `auto` — the browser
+language if a pack for it exists, English otherwise. English and German ship with
+the page.
+
+The language of the start page also drives the clock/date format and the weather
+city search. (The old `locale` setting is gone; `clock24h` stays.)
+
+### Adding a language
+
+Everything lives in `lang.js` — no other file changes.
+
+1. Copy the `en` block in `lang.js`, rename the key to your language code
+   (e.g. `fr`).
+2. Set `name` (as shown in the picker) and `locale` (a BCP-47 tag such as
+   `fr-FR`, used for clock, date and city search).
+3. Translate the values. Keep every key and keep the `{placeholders}` intact.
+4. Run `node check-i18n.js` — it reports any key you missed.
+
+The new language appears in both pickers on the next reload. Markup and logic
+stay untouched, which is the point of the layout.
+
 ## Widgets & settings
 
 All under `settings` in `config.js`:
@@ -181,7 +205,8 @@ All under `settings` in `config.js`:
 | `title` / `subtitle` | Brand shown top-left and the small label under it             |
 | `accent`       | Primary accent color (any CSS color)                                |
 | `owner`        | Name used in the greeting                                           |
-| `locale` / `clock24h` | Clock & date formatting                                      |
+| `lang`         | Language of the start page and of the settings drawer, set separately: `{ ui: "auto", settings: "auto" }`. `"auto"` follows the browser; `"en"` / `"de"` pin a pack |
+| `clock24h`     | 24-hour clock. The date format itself comes from the start page's language pack |
 | `search`       | Web search bar + engines. Bang prefixes switch engine: `!g cats`    |
 | `weather`      | Weather widget via [open-meteo](https://open-meteo.com) — no API key. Set your `latitude` / `longitude` |
 | `publicIp`     | Show your public (WAN) IP as a pill under the weather. `{ enabled: true }` |

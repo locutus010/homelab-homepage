@@ -1,0 +1,128 @@
+# CLAUDE.md
+
+Guidance for working in this repository.
+
+## What this is
+
+A self-hosted **homelab start page / dashboard**. A static browser homepage
+that shows configurable bookmarks to systems on the local network, grouped
+into categories, plus widgets (clock, greeting, weather, web search, live
+service-status LEDs).
+
+**Plain HTML / CSS / JavaScript. No build step, no framework, no dependencies.**
+Do not introduce a bundler, package manager, or framework unless the user
+explicitly asks — keeping it zero-dependency and openable as a single file is a
+core constraint.
+
+The one exception is `server.py` (Python standard library only — no pip): an
+*optional* tiny server that both serves the files and stores settings centrally
+in SQLite so every machine on the LAN shares one config. The page still works
+fully via `file://` (and any static server) by falling back to `localStorage`;
+the server must remain optional and dependency-free.
+
+## Files
+
+| File         | Purpose                                                          |
+| ------------ | ---------------------------------------------------------------- |
+| `index.html`  | Markup and the static scaffolding for each widget              |
+| `styles.css`  | All styling. Aesthetic: industrial "mission control" — ink bg, single amber accent (`--accent`), Archivo display + JetBrains Mono labels, grain + dot-grid texture. Settings-drawer styles are appended at the end (`.set-*`, `.gear`). |
+| `app.js`      | Core logic + the `window.Homelab` API. One IIFE.               |
+| `settings.js` | The on-page no-code settings drawer. One IIFE. Drives the page only through `window.Homelab`. German UI labels (Du-form). |
+| `config.js`   | **Default** data. Defines `window.CONFIG = { settings, groups }` |
+| `lang.js`     | **Language packs.** `window.LANGUAGES = { <code>: { name, locale, ui, settings } }`. The only file a new language touches. `ui` = start page, `settings` = settings drawer; the two are chosen independently. English is the fallback for any missing key. |
+| `check-i18n.js` | `node check-i18n.js` — verifies every pack carries the same keys as `en`, and that every `t()` / `tSet()` literal and `data-i18n` attribute is covered. Exits 1 on findings. |
+| `server.py`   | Optional stdlib server: serves the files + central settings store. `GET`/`PUT`/`DELETE /api/config` backed by SQLite (`homelab.db`); `GET /api/favicon?url=` resolves a link's favicon server-side (prefers the site's dark-mode variant, embeds it as a data-URI). |
+| `Dockerfile`  | Container image: `python:3.13-alpine`, runs `server.py` as uid 1000, DB on the `/data` volume. No pip, no build stage — keep it that way (Alpine is only safe *because* nothing is compiled). |
+| `compose.yaml` | One service on port 8080 with the `homelab-data` volume; the env vars are commented-out examples. Builds locally (`build: .`). |
+| `portainer-stack.yml` | Same service for Portainer stacks: pulls the GHCR image instead of building (Portainer's web editor has no build context) and exposes the env vars as `${VAR:-default}` so they can be set in the stack UI. Keep it in sync with `compose.yaml`. |
+
+## Architecture notes
+
+- **Active config vs. defaults.** `config.js` provides *defaults*. On boot
+  `app.js` overlays the user's saved edits to form the *active* config. Settings
+  (objects) are deep-merged so new default keys appear; `groups` (array) is
+  taken wholesale from the save if present. The active config — not
+  `window.CONFIG` — is the source of truth at runtime.
+- **Where saved edits live.** First paint uses the `localStorage` cache
+  (`homelab.config.v1`); then `syncFromServer()` pulls the central config from
+  `GET /api/config` and re-renders. `persist()` always writes the localStorage
+  cache immediately and, when served over http(s), debounce-`PUT`s to the
+  server (`serverEnabled`). Over `file://` the API is skipped entirely and
+  localStorage is the only store — the page stays self-contained.
+  The server's SQLite file defaults to `homelab.db` next to the web files;
+  `HOMELAB_DB` overrides it, which is how the container keeps it on a volume.
+- **`window.Homelab` is the seam** between logic and UI. `settings.js` must go
+  through it, never touch the DOM board or `localStorage` directly. API:
+  `config()` (live mutable object), `defaults()`, `apply()` (persist + render),
+  `render()`, `refreshWeather()`, `replaceConfig(obj)`, `resetDefaults()`.
+- **No visible text belongs in the markup or in JS.** Every user-facing string
+  lives in `lang.js` and is read through `t(key, vars)` (start page) or
+  `tSet(key, vars)` (settings drawer), both on `window.Homelab`. Static text in
+  `index.html` is bound with `data-i18n="key"` or
+  `data-i18n-attr="placeholder:key,aria-label:key"` and filled by
+  `applyStaticStrings()` on every `render()` — so adding a language never
+  touches the HTML. Placeholders are `{name}`; values interpolated into them
+  come from user data and must still go through `escapeHtml()` wherever the
+  result reaches `innerHTML`.
+- **Two languages, independently set.** `settings.lang.ui` and
+  `settings.lang.settings` each hold a pack code or `"auto"` (browser language,
+  falling back to English). Clock, date and the weather city search follow the
+  start page's pack via `activeLocale()`. There is no `settings.locale` any
+  more. The drawer's frame is built once in `mount()`, so `settings.js` refreshes
+  it through `applyChromeStrings()` from `rebuild()`.
+- `render()` is idempotent and safe to call on every keystroke. Event listeners
+  (clock, search, filter, keyboard) are attached **once** in `init()` and read
+  the active config at event time; `render()` only updates DOM content. The
+  status-check interval is the exception — it's cleared and rescheduled in
+  `scheduleStatusRun()`.
+- **`config.js` is user data, not code to refactor.** Treat its shape as the
+  public API shared by `app.js`, `settings.js`, and import/export. When adding a
+  feature, extend the config schema rather than hardcoding, and add a matching
+  control in `settings.js`. Keep its inline comments — user documentation.
+- Settings edits mutate the live `Homelab.config()` object by reference, then
+  call `apply()`. Text inputs do **not** rebuild the settings DOM (would lose
+  focus); only structural actions (add/delete/reorder) call `buildBookmarks()`.
+- Import parses both pure JSON and `window.CONFIG = {…};` files (via a `Function`
+  shim). It's a homelab tool editing the user's own file, so this is acceptable;
+  don't extend it to fetch/eval remote input.
+- Rendering is plain DOM construction (`document.createElement`). Any user
+  string that reaches `innerHTML` must go through `escapeHtml()`.
+- Status checks use `fetch(url, { mode: "no-cors" })` — this is a best-effort
+  *reachability* probe, not an HTTP health check (opaque responses can't be
+  read). Don't claim it reports HTTP status.
+- Config is loaded as a plain `<script>` global (not `fetch` of JSON) on
+  purpose, so the page also works when opened directly via `file://`.
+
+## Conventions
+
+- 2-space indent; double quotes in JS; trailing commas in multiline literals.
+- Style via CSS custom properties on `:root`; the accent color is driven from
+  config through `--accent`. Don't hardcode the accent in new rules — use
+  `var(--accent)` and the `--accent-soft` / `--accent-line` derivatives.
+- Respect `@media (prefers-reduced-motion: reduce)` for any new animation.
+- New widgets: add static scaffolding to `index.html` (hidden by default), a
+  config flag under `settings`, and an init call in `app.js`'s `init()`.
+
+## Testing
+
+No test framework, but `node` is available (v22) — use it. `node --check
+<file>` catches syntax errors, and since the browser-independent helpers are
+plain functions inside the IIFE, they can be pulled out of the source and
+exercised directly:
+
+```js
+const src = require("fs").readFileSync("app.js", "utf8");
+const start = src.indexOf("function safeHref(url)");
+const safeHref = new Function(
+  src.slice(start, src.indexOf("\n  }", start) + 4) + "; return safeHref;")();
+```
+
+That tests the shipping code rather than a copy of it. Where `node` is missing,
+fall back to a tokenizer-aware brace/paren balance check rather than a naive one
+(regex literals and comments break naive checkers). For anything touching the
+DOM, verify visually by serving the folder: `python3 -m http.server 8080`, or
+`python3 server.py` when the sync API is involved.
+
+After touching any visible string, run `node check-i18n.js`. It catches the
+usual language-pack mistakes: a key added to `en` but forgotten in `de`, a typo
+in a `t()` call, a `data-i18n` attribute pointing at nothing.
