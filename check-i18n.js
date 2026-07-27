@@ -71,17 +71,62 @@ function collect(text, re) {
   return out;
 }
 
+/* Shape of an i18n key literal, e.g. "greeting.morning". */
+const KEY_LITERAL = /"([a-zA-Z][a-zA-Z0-9]*(?:\.[a-zA-Z0-9]+)+)"/g;
+
+/* Starting at src[openParen] === "(", walk forward tracking paren depth
+ * (skipping over string/template contents so parens inside them don't
+ * confuse the count) and return the index just past the matching ")". */
+function findCallEnd(src, openParen) {
+  let depth = 0;
+  for (let i = openParen; i < src.length; i++) {
+    const c = src[i];
+    if (c === "\"" || c === "'" || c === "`") {
+      const quote = c;
+      i++;
+      while (i < src.length && src[i] !== quote) {
+        if (src[i] === "\\") i++;
+        i++;
+      }
+      continue;
+    }
+    if (c === "(") depth++;
+    else if (c === ")") {
+      depth--;
+      if (depth === 0) return i + 1;
+    }
+  }
+  return src.length;
+}
+
+/* Collect every key-shaped string literal that appears anywhere inside a
+ * call to one of `names` (e.g. t(...) / tSet(...) / T(...)) — not just the
+ * literal directly after the opening paren. That also catches key literals
+ * buried inside a multi-line ternary passed as the argument. */
+function collectCallKeys(src, names) {
+  const used = new Set();
+  const callRe = new RegExp("\\b(?:" + names.join("|") + ")\\(", "g");
+  let m;
+  while ((m = callRe.exec(src)) !== null) {
+    const openParen = m.index + m[0].length - 1;
+    const closeParen = findCallEnd(src, openParen);
+    const span = src.slice(openParen + 1, closeParen - 1);
+    KEY_LITERAL.lastIndex = 0;
+    let k;
+    while ((k = KEY_LITERAL.exec(span)) !== null) used.add(k[1]);
+  }
+  return used;
+}
+
 function checkUsage(packs) {
   const base = packs[FALLBACK];
   if (!base) return;
-  [["app.js", "ui"], ["settings.js", "settings"]].forEach(([file, kind]) => {
+  [["app.js", "ui", ["t"]], ["settings.js", "settings", ["tSet", "T"]]].forEach(([file, kind, names]) => {
     const src = read(file);
     // settings.js uses a short alias T(...) for tSet(...) — cover both.
-    const used = kind === "ui"
-      ? collect(src, /\bt\(\s*"([^"]+)"/g)
-      : collect(src, /\b(?:tSet|T)\(\s*"([^"]+)"/g);
+    const used = collectCallKeys(src, names);
     const have = keysOf(base, kind);
-    used.filter((k) => have.indexOf(k) === -1)
+    Array.from(used).filter((k) => have.indexOf(k) === -1)
       .forEach((k) => problems.push(`${file}: uses "${k}" which is not in ${FALLBACK}.${kind}`));
   });
 }
