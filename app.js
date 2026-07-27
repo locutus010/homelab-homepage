@@ -24,6 +24,80 @@
   const $ = (sel) => document.querySelector(sel);
 
   /* --------------------------------------------------------------------------
+   *  i18n — start page and settings drawer pick their language independently.
+   *  Packs live in lang.js (window.LANGUAGES); English is always the fallback.
+   * ----------------------------------------------------------------------- */
+  const FALLBACK_LANG = "en";
+
+  function packs() {
+    return window.LANGUAGES || {};
+  }
+
+  /* Map a configured code ("auto" | "de" | …) onto a pack that exists.
+     "auto" reads the browser: exact tag first ("de-DE"), then the primary
+     subtag ("de"). Anything unresolvable ends up on English. */
+  function resolveLangCode(code, available, navLang) {
+    const FALLBACK_LANG = "en";
+    const codes = available || [];
+    const want = String(code == null ? "auto" : code);
+    if (want !== "auto") {
+      if (codes.indexOf(want) !== -1) return want;
+    } else {
+      const nav = String(navLang || "");
+      if (nav) {
+        if (codes.indexOf(nav) !== -1) return nav;
+        const primary = nav.split("-")[0];
+        if (primary && codes.indexOf(primary) !== -1) return primary;
+      }
+    }
+    return codes.indexOf(FALLBACK_LANG) !== -1 ? FALLBACK_LANG : (codes[0] || FALLBACK_LANG);
+  }
+
+  /* Fill {placeholders}. Unknown ones are left alone so a typo shows up as
+     "{name}" instead of silently rendering "undefined". */
+  function interpolate(str, vars) {
+    if (!vars) return String(str);
+    return String(str).replace(/\{(\w+)\}/g, (whole, key) =>
+      Object.prototype.hasOwnProperty.call(vars, key) ? String(vars[key]) : whole);
+  }
+
+  /** Resolved pack code for "ui" or "settings". */
+  function langCode(kind) {
+    const conf = settings().lang || {};
+    const nav = (typeof navigator !== "undefined" && navigator.language) || "";
+    return resolveLangCode(conf[kind], Object.keys(packs()), nav);
+  }
+
+  /* Chosen pack -> English pack -> the key itself. Never renders empty. */
+  function lookup(kind, key, vars) {
+    const all = packs();
+    const chosen = (all[langCode(kind)] || {})[kind] || {};
+    const fallback = (all[FALLBACK_LANG] || {})[kind] || {};
+    const raw = chosen[key] != null ? chosen[key]
+      : (fallback[key] != null ? fallback[key] : key);
+    return interpolate(raw, vars);
+  }
+
+  const t = (key, vars) => lookup("ui", key, vars);
+  const tSet = (key, vars) => lookup("settings", key, vars);
+
+  /** BCP-47 tag of the start page's pack — clock, date, city search. */
+  function activeLocale() {
+    const pack = packs()[langCode("ui")];
+    return (pack && pack.locale) || "en-US";
+  }
+
+  /** [{ code, name }] for the two language pickers in settings.js. */
+  function languages() {
+    const all = packs();
+    return Object.keys(all)
+      .map((code) => ({ code, name: all[code].name || code }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  if (!window.LANGUAGES) console.warn("[homelab] lang.js missing — showing raw keys");
+
+  /* --------------------------------------------------------------------------
    *  Active config (defaults <- saved overrides)
    * ----------------------------------------------------------------------- */
   const DEFAULTS = clone(window.CONFIG || { settings: {}, groups: [] });
@@ -140,6 +214,12 @@
   window.Homelab = {
     config: () => ACTIVE,
     defaults: () => clone(DEFAULTS),
+    /* i18n — settings.js goes through these instead of holding its own texts. */
+    t,
+    tSet,
+    activeLocale,
+    langCode,
+    languages,
     save: persist,
     /** Re-draw everything from the active config and persist. */
     apply() {
