@@ -278,6 +278,7 @@
    * ----------------------------------------------------------------------- */
   function render() {
     const s = settings();
+    applyStaticStrings();
 
     if (s.accent) document.documentElement.style.setProperty("--accent", s.accent);
     document.title = `${s.title || "Homelab"} · ${s.subtitle || "Start"}`;
@@ -291,6 +292,29 @@
     renderBoard();
     renderStats();
     scheduleStatusRun();
+  }
+
+  /* Fill everything the markup tagged as translatable. Keeps index.html free
+     of language-specific text, so a new pack never touches the HTML.
+     The settings drawer is not covered here — settings.js builds its own DOM
+     through tSet(). */
+  function applyStaticStrings() {
+    document.documentElement.lang = langCode("ui");
+
+    document.querySelectorAll("[data-i18n]").forEach((el) => {
+      el.textContent = t(el.dataset.i18n);
+    });
+
+    // "placeholder:search.placeholder,aria-label:search.aria"
+    document.querySelectorAll("[data-i18n-attr]").forEach((el) => {
+      el.dataset.i18nAttr.split(",").forEach((pair) => {
+        const idx = pair.indexOf(":");
+        if (idx === -1) return;
+        const attr = pair.slice(0, idx).trim();
+        const key = pair.slice(idx + 1).trim();
+        if (attr && key) el.setAttribute(attr, t(key));
+      });
+    });
   }
 
   function renderGreeting() {
@@ -529,7 +553,7 @@
     const form = $("#search-form");
     const board = $("#board");
     const emptyEl = $("#filter-empty");
-    const termEl = $("#filter-term");
+    const msgEl = $("#filter-message");
 
     input.addEventListener("input", () => {
       const q = filterTerm(input.value);
@@ -550,7 +574,7 @@
         group.classList.toggle("is-hidden", has === 0);
       });
       emptyEl.hidden = visible !== 0;
-      termEl.textContent = q;
+      msgEl.textContent = t("filter.empty", { term: q });
     }
 
     function clearFilter() {

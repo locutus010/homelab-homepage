@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -46,7 +46,7 @@
           <div class="pubip" id="pubip" hidden>
             <span class="pubip__icon" aria-hidden="true">🌐</span>
             <span class="pubip__value" id="pubip-value">—</span>
-            <span class="pubip__label">WAN IP</span>
+            <span class="pubip__label" data-i18n="pubip.label">WAN IP</span>
           </div>
         </div>
       </div>
@@ -64,6 +64,7 @@
           type="text"
           placeholder="Search the web   ·   start with  /  to filter your links"
           aria-label="Search"
+          data-i18n-attr="placeholder:search.placeholder,aria-label:search.aria"
           spellcheck="false"
         />
         <kbd class="search__hint">↵</kbd>
@@ -73,19 +74,19 @@
       <div class="stats" id="stats" hidden>
         <div class="stat">
           <span class="stat__value" id="stat-monitored">0</span>
-          <span class="stat__label">Monitored</span>
+          <span class="stat__label" data-i18n="stats.monitored">Monitored</span>
         </div>
         <div class="stat">
           <span class="stat__value" id="stat-groups">0</span>
-          <span class="stat__label">Groups</span>
+          <span class="stat__label" data-i18n="stats.groups">Groups</span>
         </div>
         <div class="stat">
           <span class="stat__value stat__value--ok" id="stat-online">0</span>
-          <span class="stat__label">Online</span>
+          <span class="stat__label" data-i18n="stats.online">Online</span>
         </div>
         <div class="stat">
           <span class="stat__value stat__value--down" id="stat-offline">0</span>
-          <span class="stat__label">Offline</span>
+          <span class="stat__label" data-i18n="stats.offline">Offline</span>
         </div>
       </div>
     </section>
@@ -93,16 +94,16 @@
     <!-- ===================== BOOKMARK GROUPS ===================== -->
     <section class="board" id="board" aria-live="polite"></section>
 
-    <div class="empty" id="filter-empty" hidden>
-      <span>No links match “<span id="filter-term"></span>”</span>
+    <div class=”empty” id=”filter-empty” hidden>
+      <span id=”filter-message”></span>
     </div>
 
     <footer class="footer">
       <span>Copyright by locutus010</span>
       <span class="footer__dot">·</span>
-      <span><kbd>/</kbd> filter links</span>
+      <span><kbd>/</kbd> <span data-i18n="footer.filter">filter links</span></span>
       <span class="footer__dot">·</span>
-      <span><kbd>Esc</kbd> clear</span>
+      <span><kbd>Esc</kbd> <span data-i18n="footer.clear">clear</span></span>
     </footer>
   </main>
 
