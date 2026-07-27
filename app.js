@@ -37,6 +37,9 @@
      "auto" reads the browser: exact tag first ("de-DE"), then the primary
      subtag ("de"). Anything unresolvable ends up on English. */
   function resolveLangCode(code, available, navLang) {
+    // Deliberate re-declaration, not a leftover: docs/architecture.md's test
+    // technique slices this function out of the source with `new Function`,
+    // which does not close over the IIFE scope, so it needs its own copy.
     const FALLBACK_LANG = "en";
     const codes = available || [];
     const want = String(code == null ? "auto" : code);
@@ -299,6 +302,10 @@
      The settings drawer is not covered here — settings.js builds its own DOM
      through tSet(). */
   function applyStaticStrings() {
+    // No lang.js loaded (e.g. it failed to fetch): leave the markup's own
+    // English text alone instead of overwriting it with raw dotted keys.
+    if (!window.LANGUAGES) return;
+
     document.documentElement.lang = langCode("ui");
 
     document.querySelectorAll("[data-i18n]").forEach((el) => {
