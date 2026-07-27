@@ -320,13 +320,17 @@
   function renderGreeting() {
     const s = settings();
     const h = new Date().getHours();
-    const part =
-      h < 5 ? "Late night" :
-      h < 12 ? "Good morning" :
-      h < 18 ? "Good afternoon" :
-      "Good evening";
-    const who = s.owner ? `, <b>${escapeHtml(s.owner)}</b>` : "";
-    $("#greeting").innerHTML = `${part}${who}.`;
+    const part = t(
+      h < 5 ? "greeting.night" :
+      h < 12 ? "greeting.morning" :
+      h < 18 ? "greeting.afternoon" :
+      "greeting.evening"
+    );
+    // The pack's sentence carries the markup; the owner name is user data and
+    // stays escaped on its way into innerHTML.
+    $("#greeting").innerHTML = s.owner
+      ? t("greeting.withName", { part, name: escapeHtml(s.owner) })
+      : t("greeting.plain", { part });
   }
 
   /* --------------------------------------------------------------------------
@@ -337,7 +341,7 @@
     const dateEl = $("#clock-date");
     const tick = () => {
       const s = settings();
-      const locale = s.locale || undefined;
+      const locale = activeLocale();
       const now = new Date();
       timeEl.textContent = now.toLocaleTimeString(locale, {
         hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: !s.clock24h,
@@ -421,7 +425,7 @@
     if (link.ping && settings().statusCheck) {
       const led = document.createElement("span");
       led.className = "led";
-      led.title = "Checking…";
+      led.title = t("status.checking");
       led.dataset.ping = link.url || "";
       a.appendChild(led);
     }
@@ -639,7 +643,7 @@
     const url = led.dataset.ping;
     if (!url) return;
     led.className = "led led--checking";
-    led.title = "Checking…";
+    led.title = t("status.checking");
 
     const timeout = settings().statusTimeoutMs || 4000;
     const controller = new AbortController();
@@ -656,7 +660,7 @@
 
   function setLed(led, up) {
     led.className = "led " + (up ? "led--up" : "led--down");
-    led.title = up ? "Online" : "Unreachable";
+    led.title = up ? t("status.online") : t("status.offline");
     updateStatusCounts();
   }
 
@@ -731,8 +735,8 @@
     }
     // Keep the pill visible either way so it never silently disappears.
     if (out) {
-      out.textContent = ip || "n/v";
-      out.title = ip ? "" : "Öffentliche IP nicht abrufbar (Internet/Blocker?)";
+      out.textContent = ip || t("pubip.unavailable");
+      out.title = ip ? "" : t("pubip.error");
     }
     if (ip) {
       pubIpLoaded = true;  // one-shot per session; reload the page to refresh
