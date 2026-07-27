@@ -27,7 +27,7 @@ the server must remain optional and dependency-free.
 | `index.html`  | Markup and the static scaffolding for each widget              |
 | `styles.css`  | All styling. Aesthetic: industrial "mission control" — ink bg, single amber accent (`--accent`), Archivo display + JetBrains Mono labels, grain + dot-grid texture. Settings-drawer styles are appended at the end (`.set-*`, `.gear`). |
 | `app.js`      | Core logic + the `window.Homelab` API. One IIFE.               |
-| `settings.js` | The on-page no-code settings drawer. One IIFE. Drives the page only through `window.Homelab`. German UI labels (Du-form). |
+| `settings.js` | The on-page no-code settings drawer. One IIFE. Drives the page only through `window.Homelab`. Every label comes from `lang.js` via `tSet()`; the drawer's language is set independently from the start page's. |
 | `config.js`   | **Default** data. Defines `window.CONFIG = { settings, groups }` |
 | `lang.js`     | **Language packs.** `window.LANGUAGES = { <code>: { name, locale, ui, settings } }`. The only file a new language touches. `ui` = start page, `settings` = settings drawer; the two are chosen independently. English is the fallback for any missing key. |
 | `check-i18n.js` | `node check-i18n.js` — verifies every pack carries the same keys as `en`, and that every `t()` / `tSet()` literal and `data-i18n` attribute is covered. Exits 1 on findings. |
