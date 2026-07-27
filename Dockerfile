@@ -18,7 +18,7 @@ RUN addgroup -g 1000 homelab \
 WORKDIR /app
 
 # Only the runtime files. Everything else is excluded via .dockerignore.
-COPY index.html styles.css app.js settings.js config.js server.py ./
+COPY index.html styles.css app.js lang.js settings.js config.js server.py ./
 
 ENV HOMELAB_DB=/data/homelab.db \
     HOMELAB_HOST=0.0.0.0 \

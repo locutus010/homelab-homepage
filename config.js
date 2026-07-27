@@ -13,7 +13,13 @@ window.CONFIG = {
     subtitle: "Mission Control", // Small label under the brand
     owner: "Sven",               // Used for the time-of-day greeting
     accent: "#f4b740",           // Primary accent color (any CSS color)
-    locale: "de-DE",             // Locale for clock/date formatting
+    // Language packs (lang.js). The start page and the settings drawer are set
+    // separately. "auto" follows the browser and falls back to English; use a
+    // pack code like "en" or "de" to pin one.
+    lang: {
+      ui: "auto",
+      settings: "auto",
+    },
     clock24h: true,              // 24-hour clock
 
     // Live reachability check for links flagged with `ping: true`.

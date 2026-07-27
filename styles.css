@@ -440,7 +440,6 @@ body::before {
   color: var(--text-dim);
   padding: 48px 0;
 }
-.empty span span { color: var(--accent); }
 
 /* ============================ FOOTER ============================ */
 .footer {

@@ -24,6 +24,83 @@
   const $ = (sel) => document.querySelector(sel);
 
   /* --------------------------------------------------------------------------
+   *  i18n — start page and settings drawer pick their language independently.
+   *  Packs live in lang.js (window.LANGUAGES); English is always the fallback.
+   * ----------------------------------------------------------------------- */
+  const FALLBACK_LANG = "en";
+
+  function packs() {
+    return window.LANGUAGES || {};
+  }
+
+  /* Map a configured code ("auto" | "de" | …) onto a pack that exists.
+     "auto" reads the browser: exact tag first ("de-DE"), then the primary
+     subtag ("de"). Anything unresolvable ends up on English. */
+  function resolveLangCode(code, available, navLang) {
+    // Deliberate re-declaration, not a leftover: docs/architecture.md's test
+    // technique slices this function out of the source with `new Function`,
+    // which does not close over the IIFE scope, so it needs its own copy.
+    const FALLBACK_LANG = "en";
+    const codes = available || [];
+    const want = String(code == null ? "auto" : code);
+    if (want !== "auto") {
+      if (codes.indexOf(want) !== -1) return want;
+    } else {
+      const nav = String(navLang || "");
+      if (nav) {
+        if (codes.indexOf(nav) !== -1) return nav;
+        const primary = nav.split("-")[0];
+        if (primary && codes.indexOf(primary) !== -1) return primary;
+      }
+    }
+    return codes.indexOf(FALLBACK_LANG) !== -1 ? FALLBACK_LANG : (codes[0] || FALLBACK_LANG);
+  }
+
+  /* Fill {placeholders}. Unknown ones are left alone so a typo shows up as
+     "{name}" instead of silently rendering "undefined". */
+  function interpolate(str, vars) {
+    if (!vars) return String(str);
+    return String(str).replace(/\{(\w+)\}/g, (whole, key) =>
+      Object.prototype.hasOwnProperty.call(vars, key) ? String(vars[key]) : whole);
+  }
+
+  /** Resolved pack code for "ui" or "settings". */
+  function langCode(kind) {
+    const conf = settings().lang || {};
+    const nav = (typeof navigator !== "undefined" && navigator.language) || "";
+    return resolveLangCode(conf[kind], Object.keys(packs()), nav);
+  }
+
+  /* Chosen pack -> English pack -> the key itself. Never renders empty. */
+  function lookup(kind, key, vars) {
+    const all = packs();
+    const chosen = (all[langCode(kind)] || {})[kind] || {};
+    const fallback = (all[FALLBACK_LANG] || {})[kind] || {};
+    const raw = chosen[key] != null ? chosen[key]
+      : (fallback[key] != null ? fallback[key] : key);
+    return interpolate(raw, vars);
+  }
+
+  const t = (key, vars) => lookup("ui", key, vars);
+  const tSet = (key, vars) => lookup("settings", key, vars);
+
+  /** BCP-47 tag of the start page's pack — clock, date, city search. */
+  function activeLocale() {
+    const pack = packs()[langCode("ui")];
+    return (pack && pack.locale) || "en-US";
+  }
+
+  /** [{ code, name }] for the two language pickers in settings.js. */
+  function languages() {
+    const all = packs();
+    return Object.keys(all)
+      .map((code) => ({ code, name: all[code].name || code }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  if (!window.LANGUAGES) console.warn("[homelab] lang.js missing — showing raw keys");
+
+  /* --------------------------------------------------------------------------
    *  Active config (defaults <- saved overrides)
    * ----------------------------------------------------------------------- */
   const DEFAULTS = clone(window.CONFIG || { settings: {}, groups: [] });
@@ -140,6 +217,12 @@
   window.Homelab = {
     config: () => ACTIVE,
     defaults: () => clone(DEFAULTS),
+    /* i18n — settings.js goes through these instead of holding its own texts. */
+    t,
+    tSet,
+    activeLocale,
+    langCode,
+    languages,
     save: persist,
     /** Re-draw everything from the active config and persist. */
     apply() {
@@ -198,6 +281,7 @@
    * ----------------------------------------------------------------------- */
   function render() {
     const s = settings();
+    applyStaticStrings();
 
     if (s.accent) document.documentElement.style.setProperty("--accent", s.accent);
     document.title = `${s.title || "Homelab"} · ${s.subtitle || "Start"}`;
@@ -213,16 +297,47 @@
     scheduleStatusRun();
   }
 
+  /* Fill everything the markup tagged as translatable. Keeps index.html free
+     of language-specific text, so a new pack never touches the HTML.
+     The settings drawer is not covered here — settings.js builds its own DOM
+     through tSet(). */
+  function applyStaticStrings() {
+    // No lang.js loaded (e.g. it failed to fetch): leave the markup's own
+    // English text alone instead of overwriting it with raw dotted keys.
+    if (!window.LANGUAGES) return;
+
+    document.documentElement.lang = langCode("ui");
+
+    document.querySelectorAll("[data-i18n]").forEach((el) => {
+      el.textContent = t(el.dataset.i18n);
+    });
+
+    // "placeholder:search.placeholder,aria-label:search.aria"
+    document.querySelectorAll("[data-i18n-attr]").forEach((el) => {
+      el.dataset.i18nAttr.split(",").forEach((pair) => {
+        const idx = pair.indexOf(":");
+        if (idx === -1) return;
+        const attr = pair.slice(0, idx).trim();
+        const key = pair.slice(idx + 1).trim();
+        if (attr && key) el.setAttribute(attr, t(key));
+      });
+    });
+  }
+
   function renderGreeting() {
     const s = settings();
     const h = new Date().getHours();
-    const part =
-      h < 5 ? "Late night" :
-      h < 12 ? "Good morning" :
-      h < 18 ? "Good afternoon" :
-      "Good evening";
-    const who = s.owner ? `, <b>${escapeHtml(s.owner)}</b>` : "";
-    $("#greeting").innerHTML = `${part}${who}.`;
+    const part = t(
+      h < 5 ? "greeting.night" :
+      h < 12 ? "greeting.morning" :
+      h < 18 ? "greeting.afternoon" :
+      "greeting.evening"
+    );
+    // The pack's sentence carries the markup; the owner name is user data and
+    // stays escaped on its way into innerHTML.
+    $("#greeting").innerHTML = s.owner
+      ? t("greeting.withName", { part, name: escapeHtml(s.owner) })
+      : t("greeting.plain", { part });
   }
 
   /* --------------------------------------------------------------------------
@@ -233,7 +348,7 @@
     const dateEl = $("#clock-date");
     const tick = () => {
       const s = settings();
-      const locale = s.locale || undefined;
+      const locale = activeLocale();
       const now = new Date();
       timeEl.textContent = now.toLocaleTimeString(locale, {
         hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: !s.clock24h,
@@ -317,7 +432,7 @@
     if (link.ping && settings().statusCheck) {
       const led = document.createElement("span");
       led.className = "led";
-      led.title = "Checking…";
+      led.title = t("status.checking");
       led.dataset.ping = link.url || "";
       a.appendChild(led);
     }
@@ -449,7 +564,7 @@
     const form = $("#search-form");
     const board = $("#board");
     const emptyEl = $("#filter-empty");
-    const termEl = $("#filter-term");
+    const msgEl = $("#filter-message");
 
     input.addEventListener("input", () => {
       const q = filterTerm(input.value);
@@ -470,7 +585,7 @@
         group.classList.toggle("is-hidden", has === 0);
       });
       emptyEl.hidden = visible !== 0;
-      termEl.textContent = q;
+      msgEl.textContent = t("filter.empty", { term: q });
     }
 
     function clearFilter() {
@@ -535,7 +650,7 @@
     const url = led.dataset.ping;
     if (!url) return;
     led.className = "led led--checking";
-    led.title = "Checking…";
+    led.title = t("status.checking");
 
     const timeout = settings().statusTimeoutMs || 4000;
     const controller = new AbortController();
@@ -552,7 +667,7 @@
 
   function setLed(led, up) {
     led.className = "led " + (up ? "led--up" : "led--down");
-    led.title = up ? "Online" : "Unreachable";
+    led.title = up ? t("status.online") : t("status.offline");
     updateStatusCounts();
   }
 
@@ -627,8 +742,8 @@
     }
     // Keep the pill visible either way so it never silently disappears.
     if (out) {
-      out.textContent = ip || "n/v";
-      out.title = ip ? "" : "Öffentliche IP nicht abrufbar (Internet/Blocker?)";
+      out.textContent = ip || t("pubip.unavailable");
+      out.title = ip ? "" : t("pubip.error");
     }
     if (ip) {
       pubIpLoaded = true;  // one-shot per session; reload the page to refresh
