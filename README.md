@@ -117,8 +117,8 @@ Leaving `HOMELAB_TOKEN` and `HOMELAB_FAVICON_ALLOW` empty means "off", which is
 the sensible default on a trusted LAN. Link-local and cloud-metadata addresses
 are blocked for the favicon fetch either way.
 
-If you set `HOMELAB_TOKEN`, enter the same value under **Sichern & Übertragen →
-Schreib-Token** in the settings panel, or the page cannot save.
+If you set `HOMELAB_TOKEN`, enter the same value under **Backup & transfer →
+Write token** in the settings panel, or the page cannot save.
 
 To ship your own default `config.js`, mount it over the one in the image:
 `-v ./config.js:/app/config.js:ro`.
@@ -128,13 +128,17 @@ To ship your own default `config.js`, mount it over the one in the image:
 Click the **⚙ gear** (top right) to open the settings panel. From there anyone —
 no technical knowledge required — can change:
 
-- **Allgemein**: title, subtitle, your name (greeting), accent color (picker), language, 24h clock
-- **Wetter**: turn it on and just type your city — coordinates are looked up automatically. °C / °F, and the toggle for the public (WAN) IP pill lives here too, since it sits right below the weather
-- **Suche**: toggle the search bar and pick the default engine
-- **Statusprüfung**: toggle the status LEDs, show or hide the number strip
+- **General**: title, subtitle, your name (greeting), accent color (picker), the two languages (start page and settings, separately), 24h clock
+- **Weather**: turn it on and just type your city — coordinates are looked up automatically. °C / °F, and the toggle for the public (WAN) IP pill lives here too, since it sits right below the weather
+- **Search**: toggle the search bar and pick the default engine
+- **Status check**: toggle the status LEDs, show or hide the number strip
   (monitored / groups / online / offline), and set how often they re-check
-- **Lesezeichen**: add / edit / delete / reorder groups and links — and the **🌐 button** on a link's icon field auto-fetches its site icon
-- **Sichern & Übertragen**: the optional write token, download a `config.js` backup or load one in, and reset everything to factory settings
+- **Bookmarks**: add / edit / delete / reorder groups and links — and the **🌐 button** on a link's icon field auto-fetches its site icon
+- **Backup & transfer**: the optional write token, download a `config.js` backup or load one in, and reset everything to factory settings
+
+The section names above are the English ones. With the panel set to German they
+read *Allgemein*, *Wetter*, *Suche*, *Statusprüfung*, *Lesezeichen* and
+*Sichern & Übertragen*.
 
 Changes apply **instantly** and are saved **automatically**. Without the server
 they live in your browser (localStorage); with `server.py` they are stored
