@@ -310,3 +310,12 @@ things, see [`docs/architecture.md`](docs/architecture.md).
 > over `config.js` — stored centrally when the server runs, otherwise in your
 > browser. Use the **reset-to-factory-settings button** under *Backup &
 > transfer* in the panel to go back to whatever `config.js` contains.
+
+## License
+
+[MIT](LICENSE) — do what you like with it, commercially too. Keep the copyright
+notice and the license text with any copy or substantial portion you pass on.
+The software comes with no warranty.
+
+The web fonts (Archivo, JetBrains Mono) are loaded from Google Fonts at runtime
+and are not part of this repository; they carry their own SIL Open Font License.
