@@ -28,8 +28,10 @@ the server must remain optional and dependency-free.
 | `index.html`  | Markup and the static scaffolding for each widget              |
 | `styles.css`  | All styling. Aesthetic: industrial "mission control" — ink bg, single amber accent (`--accent`), Archivo display + JetBrains Mono labels, grain + dot-grid texture. Settings-drawer styles are appended at the end (`.set-*`, `.gear`). |
 | `app.js`      | Core logic + the `window.Homelab` API. One IIFE.               |
-| `settings.js` | The on-page no-code settings drawer. One IIFE. Drives the page only through `window.Homelab`. German UI labels (Du-form). |
+| `settings.js` | The on-page no-code settings drawer. One IIFE. Drives the page only through `window.Homelab`. Every label comes from `lang.js` via `tSet()`; the drawer's language is set independently from the start page's. |
 | `config.js`   | **Default** data. Defines `window.CONFIG = { settings, groups }` |
+| `lang.js`     | **Language packs.** `window.LANGUAGES = { <code>: { name, locale, ui, settings } }`. The only file a new language touches. `ui` = start page, `settings` = settings drawer; the two are chosen independently. English is the fallback for any missing key. |
+| `check-i18n.js` | `node check-i18n.js` — verifies every pack carries the same keys as `en`, and that every `t()` / `tSet()` literal and `data-i18n` attribute is covered. Exits 1 on findings. |
 | `server.py`   | Optional stdlib server: serves the files + central settings store. `GET`/`PUT`/`DELETE /api/config` backed by SQLite (`homelab.db`); `GET /api/favicon?url=` resolves a link's favicon server-side (prefers the site's dark-mode variant, embeds it as a data-URI). |
 | `Dockerfile`  | Container image: `python:3.13-alpine`, runs `server.py` as uid 1000, DB on the `/data` volume. No pip, no build stage — keep it that way (Alpine is only safe *because* nothing is compiled). |
 | `compose.yaml` | One service on port 8080 with the `homelab-data` volume; the env vars are commented-out examples. Builds locally (`build: .`). |
@@ -54,6 +56,21 @@ the server must remain optional and dependency-free.
   through it, never touch the DOM board or `localStorage` directly. API:
   `config()` (live mutable object), `defaults()`, `apply()` (persist + render),
   `render()`, `refreshWeather()`, `replaceConfig(obj)`, `resetDefaults()`.
+- **No visible text belongs in the markup or in JS.** Every user-facing string
+  lives in `lang.js` and is read through `t(key, vars)` (start page) or
+  `tSet(key, vars)` (settings drawer), both on `window.Homelab`. Static text in
+  `index.html` is bound with `data-i18n="key"` or
+  `data-i18n-attr="placeholder:key,aria-label:key"` and filled by
+  `applyStaticStrings()` on every `render()` — so adding a language never
+  touches the HTML. Placeholders are `{name}`; values interpolated into them
+  come from user data and must still go through `escapeHtml()` wherever the
+  result reaches `innerHTML`.
+- **Two languages, independently set.** `settings.lang.ui` and
+  `settings.lang.settings` each hold a pack code or `"auto"` (browser language,
+  falling back to English). Clock, date and the weather city search follow the
+  start page's pack via `activeLocale()`. There is no `settings.locale` any
+  more. The drawer's frame is built once in `mount()`, so `settings.js` refreshes
+  it through `applyChromeStrings()` from `rebuild()`.
 - `render()` is idempotent and safe to call on every keystroke. Event listeners
   (clock, search, filter, keyboard) are attached **once** in `init()` and read
   the active config at event time; `render()` only updates DOM content. The
@@ -106,3 +123,7 @@ fall back to a tokenizer-aware brace/paren balance check rather than a naive one
 (regex literals and comments break naive checkers). For anything touching the
 DOM, verify visually by serving the folder: `python3 -m http.server 8080`, or
 `python3 server.py` when the sync API is involved.
+
+After touching any visible string, run `node check-i18n.js`. It catches the
+usual language-pack mistakes: a key added to `en` but forgotten in `de`, a typo
+in a `t()` call, a `data-i18n` attribute pointing at nothing.

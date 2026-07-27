@@ -133,7 +133,7 @@ no technical knowledge required — can change:
 - **Suche**: toggle the search bar and pick the default engine
 - **Statusprüfung**: toggle the status LEDs, show or hide the number strip
   (monitored / groups / online / offline), and set how often they re-check
-- **Lesezeichen**: add / edit / delete / reorder groups and links — and **„Favicon holen“ (🌐)** auto-fetches a link's site icon
+- **Lesezeichen**: add / edit / delete / reorder groups and links — and the **🌐 button** on a link's icon field auto-fetches its site icon
 - **Sichern & Übertragen**: the optional write token, download a `config.js` backup or load one in, and reset everything to factory settings
 
 Changes apply **instantly** and are saved **automatically**. Without the server
@@ -142,8 +142,9 @@ centrally and shared across every device — no file editing and no refresh
 needed.
 
 To make your setup the default on every device (or to back it up) without the
-server, use **„config.js herunterladen“** in the panel and drop that file into
-the project folder, replacing the existing `config.js`.
+server, use the **⬇ download button** under *Backup & transfer* in the panel
+and drop that file into the project folder, replacing the existing
+`config.js`.
 
 ## Add your own links by editing the file (optional)
 
@@ -269,8 +270,8 @@ that is how the container keeps it on a volume. `HOMELAB_TOKEN` and
 
 ## Favicons
 
-In a link's icon field you can click **🌐 „Favicon holen“** to grab the site's
-own icon automatically:
+In a link's icon field you can click the **🌐 button** to grab the site's own
+icon automatically:
 
 - **With the server**, `/api/favicon` fetches the page, parses its
   `<link rel="icon">` tags, prefers the site's **dark-mode** icon variant (this
@@ -291,6 +292,8 @@ an auto-generated monogram.
 | `app.js`      | Rendering + widget logic                 |
 | `settings.js` | The on-page settings panel (no-code editor) |
 | `config.js`   | **Default** links, groups, and settings  |
+| `lang.js`     | Language packs (English, German) — see [Languages](#languages) above |
+| `check-i18n.js` | Dev tool: `node check-i18n.js` checks the language packs are complete and in sync with the code |
 | `server.py`   | **Optional** stdlib server: serves the files + central SQLite settings store + favicon resolver |
 | `Dockerfile`  | Container image (`python:3.13-alpine`, no pip)          |
 | `compose.yaml` | Compose file that builds the image locally             |
@@ -301,5 +304,5 @@ things, see [`docs/architecture.md`](docs/architecture.md).
 
 > Note: once you edit anything in the settings panel, those edits take priority
 > over `config.js` — stored centrally when the server runs, otherwise in your
-> browser. Use **„Auf Werkseinstellungen zurücksetzen“** in the panel to go back
-> to whatever `config.js` contains.
+> browser. Use the **reset-to-factory-settings button** under *Backup &
+> transfer* in the panel to go back to whatever `config.js` contains.
