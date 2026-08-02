@@ -517,8 +517,11 @@
       class: "gear", type: "button",
       html: gearSvg(), onclick: open,
     });
-    const meta = document.querySelector(".topbar__meta");
-    (meta || document.body).appendChild(btn);
+    // The gear belongs in the action column, under the theme toggle. Fall back
+    // to the meta row if the markup predates it.
+    const host = document.querySelector(".meta-actions")
+      || document.querySelector(".topbar__meta");
+    (host || document.body).appendChild(btn);
 
     rebuild();
 

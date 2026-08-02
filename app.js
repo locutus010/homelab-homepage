@@ -268,12 +268,54 @@
    *  Boot
    * ----------------------------------------------------------------------- */
   function init() {
+    setupTheme();          // before first paint, so nothing flashes dark→light
     startClock();          // independent ticker, set up once
     setupSearch();         // listeners attached once, read ACTIVE at event time
     setupFilter();         // listeners attached once
     render();              // first paint (from local cache / defaults)
     loadWeather();         // initial fetch
     syncFromServer();      // overlay the central config once it loads
+  }
+
+  /* --------------------------------------------------------------------------
+   *  Theme — dark / light
+   *
+   *  Deliberately NOT part of the config. The theme belongs to the screen you
+   *  are looking at, not to the LAN, so it lives in localStorage only and never
+   *  reaches PUT /api/config: a phone switched to light must not flip the wall
+   *  display. That also keeps it out of config import/export.
+   * ----------------------------------------------------------------------- */
+  const THEME_KEY = "homelab.theme.v1";
+
+  function storedTheme() {
+    try {
+      const v = localStorage.getItem(THEME_KEY);
+      return v === "light" || v === "dark" ? v : null;
+    } catch (_) {
+      return null;   // storage blocked (some browsers do this over file://)
+    }
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    const btn = $("#theme-toggle");
+    if (btn) btn.setAttribute("aria-pressed", String(theme === "light"));
+  }
+
+  function setupTheme() {
+    // Nothing stored yet -> follow the OS once. After the first click the
+    // stored choice wins for good; there is no "auto" state to fall back to.
+    const prefersLight =
+      window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
+    applyTheme(storedTheme() || (prefersLight ? "light" : "dark"));
+
+    const btn = $("#theme-toggle");
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+      applyTheme(next);
+      try { localStorage.setItem(THEME_KEY, next); } catch (_) {}
+    });
   }
 
   /* --------------------------------------------------------------------------

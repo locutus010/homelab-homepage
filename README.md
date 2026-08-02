@@ -4,6 +4,7 @@ A self-hosted browser start page / dashboard for your homelab. Configurable
 bookmarks to the systems on your local network, grouped into categories, plus
 widgets: live clock, time-of-day greeting, weather, a web search bar, your
 public (WAN) IP, and best-effort online/offline status LEDs for each service.
+Dark and light theme, switched from the top-right corner.
 
 Plain **HTML / CSS / JavaScript** — no build step, no dependencies, no
 framework. Works straight from `file://`. An *optional* tiny Python server adds
@@ -217,6 +218,22 @@ All under `settings` in `config.js`:
 | `publicIp`     | Show your public (WAN) IP as a pill under the weather. `{ enabled: true }` |
 | `statusCheck`  | Live reachability LEDs for links with `ping: true`                  |
 | `stats`        | The number strip (monitored / groups / online / offline). `{ enabled: true }` — only shown while `statusCheck` is on |
+
+### Dark & light theme
+
+The button in the top-right corner — above the settings gear, next to the
+weather — switches between the dark and the light theme.
+
+It is **not** a setting in `config.js`, and it is deliberately not shared by the
+optional server: the theme belongs to the screen in front of you, not to the
+whole LAN, so switching your phone to light does not flip the wall display. The
+choice is kept per device in `localStorage` under `homelab.theme.v1`. Until you
+press the button the first time, the page follows your operating system.
+
+Your `accent` color carries into the light theme. Amber-ish accents are hard to
+read as *text* on a light background, so the theme darkens the accent for the
+few places where it is used as lettering — borders, glows and fills keep the
+exact color you configured.
 
 ## Keyboard
 
