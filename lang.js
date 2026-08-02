@@ -48,6 +48,8 @@ window.LANGUAGES = {
       "pubip.label": "WAN IP",
       "pubip.unavailable": "n/a",
       "pubip.error": "Public IP unavailable (internet/blocker?)",
+
+      "theme.toggle": "Switch between dark and light mode",
     },
 
     settings: {
@@ -171,6 +173,8 @@ window.LANGUAGES = {
       "pubip.label": "WAN-IP",
       "pubip.unavailable": "n/v",
       "pubip.error": "Öffentliche IP nicht abrufbar (Internet/Blocker?)",
+
+      "theme.toggle": "Zwischen dunklem und hellem Modus wechseln",
     },
 
     settings: {

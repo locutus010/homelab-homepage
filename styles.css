@@ -30,10 +30,67 @@
   --r-lg: 20px;
 
   --shadow: 0 18px 50px -20px rgba(0, 0, 0, 0.8);
+  --shadow-drawer: -30px 0 80px -20px rgba(0, 0, 0, 0.8);
   --maxw: 1280px;
+
+  /* The accent as *text*. Amber reads fine on ink but not on paper, so the
+     light theme darkens this one while --accent itself — borders, glows,
+     fills — stays exactly the color the config asked for. */
+  --accent-text: var(--accent);
+
+  /* Atmosphere layers. Hardcoded until the light theme needed to re-point
+     them; they are unchanged in the dark theme. */
+  --glow-cool: #14202a;
+  --dot: rgba(255, 255, 255, 0.04);
+  --grain-opacity: 0.045;
+  --vignette: rgba(0, 0, 0, 0.5);
 
   --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
   --display: "Archivo", system-ui, sans-serif;
+}
+
+/* -----------------------------------------------------------------------------
+ *  LIGHT THEME — the same instrument panel, lit.
+ *
+ *  Only tokens change here. No rule below this block knows which theme is
+ *  active, which is why adding one cost no new selectors. app.js sets
+ *  data-theme on <html>; the choice is per-device and never enters the config.
+ * -------------------------------------------------------------------------- */
+:root[data-theme="light"] {
+  --accent-soft: color-mix(in srgb, var(--accent) 24%, transparent);
+  --accent-line: color-mix(in srgb, var(--accent) 62%, transparent);
+  --accent-text: color-mix(in srgb, var(--accent) 52%, #241600);
+
+  --ink-900: #e8e5dd;
+  --ink-850: #f2f0ea;
+  --ink-800: #ffffff;
+  --ink-750: #f1efe8;
+  --ink-700: #e9e6dd;
+  --line:     #cfcabd;
+  --line-soft:#e0dcd1;
+
+  --text:    #14171c;
+  --text-dim:#59616b;
+  --text-mut:#666d77;
+
+  --ok:   #12855c;
+  --down: #c33a33;
+  --idle: #b6bac1;
+
+  --shadow: 0 18px 44px -24px rgba(30, 26, 16, 0.35);
+  --shadow-drawer: -30px 0 80px -20px rgba(60, 52, 34, 0.35);
+
+  --glow-cool: #dfe6ea;
+  --dot: rgba(20, 23, 28, 0.055);
+  --grain-opacity: 0.03;
+  --vignette: rgba(90, 80, 55, 0.16);
+}
+
+/* The swap should read as a light switch, not a page reload. Covered by the
+   prefers-reduced-motion block further down. */
+body, .group, .search, .weather, .pubip, .gear, .theme-toggle,
+.link__icon, .set, .set-input {
+  transition: background-color 0.28s ease, border-color 0.28s ease, color 0.28s ease;
 }
 
 * { box-sizing: border-box; }
@@ -53,7 +110,7 @@ body {
   color: var(--text);
   background:
     radial-gradient(1100px 620px at 82% -8%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 60%),
-    radial-gradient(900px 600px at 8% 110%, #14202a 0%, transparent 55%),
+    radial-gradient(900px 600px at 8% 110%, var(--glow-cool) 0%, transparent 55%),
     linear-gradient(180deg, var(--ink-850), var(--ink-900));
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
@@ -65,7 +122,7 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1px);
   background-size: 26px 26px;
   background-position: -13px -13px;
   pointer-events: none;
@@ -78,7 +135,7 @@ body::before {
   inset: -200%;
   z-index: 1;
   pointer-events: none;
-  opacity: 0.045;
+  opacity: var(--grain-opacity);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   animation: grain 7s steps(6) infinite;
 }
@@ -96,7 +153,7 @@ body::before {
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background: radial-gradient(120% 100% at 50% 0%, transparent 55%, rgba(0, 0, 0, 0.5) 100%);
+  background: radial-gradient(120% 100% at 50% 0%, transparent 55%, var(--vignette) 100%);
 }
 
 .shell {
@@ -217,7 +274,7 @@ body::before {
   max-width: 18ch;
   animation: drop 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.06s both;
 }
-.hero__greeting b { color: var(--accent); font-weight: 800; }
+.hero__greeting b { color: var(--accent-text); font-weight: 800; }
 
 /* Search */
 .search {
@@ -243,7 +300,7 @@ body::before {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.1em;
-  color: var(--accent);
+  color: var(--accent-text);
   padding: 5px 9px;
   border: 1px solid var(--accent-line);
   border-radius: var(--r-sm);
@@ -360,7 +417,7 @@ body::before {
   right: 14px;
   font-family: var(--mono);
   font-size: 13px;
-  color: var(--accent);
+  color: var(--accent-text);
   opacity: 0;
   transform: translateX(-4px);
   transition: opacity 0.2s, transform 0.2s;
@@ -431,7 +488,7 @@ body::before {
 
 /* Filtering */
 .link.is-hidden, .group.is-hidden { display: none; }
-.link.is-match .link__name b { color: var(--accent); font-weight: 700; }
+.link.is-match .link__name b { color: var(--accent-text); font-weight: 700; }
 
 .empty {
   text-align: center;
@@ -487,8 +544,8 @@ body::before {
 .gear {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   flex: 0 0 auto;
   color: var(--text-dim);
   background: color-mix(in srgb, var(--ink-800) 70%, transparent);
@@ -498,12 +555,60 @@ body::before {
   transition: color 0.2s, border-color 0.2s, transform 0.4s, box-shadow 0.2s;
 }
 .gear:hover {
-  color: var(--accent);
+  color: var(--accent-text);
   border-color: var(--accent-line);
   box-shadow: 0 0 18px var(--accent-soft);
   transform: rotate(40deg);
 }
 .gear:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* -----------------------------------------------------------------------------
+ *  META ACTIONS — theme toggle on the weather row, gear on the WAN-IP row.
+ *  Both buttons are 48px, the height of the pills beside them, so the two
+ *  rows line up. settings.js appends the gear here.
+ * -------------------------------------------------------------------------- */
+.meta-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.theme-toggle {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  padding: 0;
+  color: var(--text-dim);
+  background: color-mix(in srgb, var(--ink-800) 70%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.theme-toggle:hover {
+  color: var(--accent-text);
+  border-color: var(--accent-line);
+  box-shadow: 0 0 18px var(--accent-soft);
+}
+.theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* One SVG carries both glyphs; CSS scales the inactive one away, so the button
+   describes its own state without JavaScript swapping icons. */
+.theme-toggle svg { display: block; }
+.theme-toggle .icon-sun,
+.theme-toggle .icon-moon {
+  transform-origin: 12px 12px;
+  transition: opacity 0.3s ease, transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.theme-toggle .icon-sun  { opacity: 0; transform: scale(0.4) rotate(-90deg); }
+.theme-toggle .icon-moon { opacity: 1; transform: none; }
+:root[data-theme="light"] .theme-toggle .icon-sun  { opacity: 1; transform: none; }
+:root[data-theme="light"] .theme-toggle .icon-moon { opacity: 0; transform: scale(0.4) rotate(90deg); }
 
 .set-overlay[hidden] { display: none; }
 .set-overlay {
@@ -528,7 +633,7 @@ body::before {
   flex-direction: column;
   background: linear-gradient(180deg, var(--ink-800), var(--ink-850));
   border-left: 1px solid var(--line);
-  box-shadow: -30px 0 80px -20px rgba(0, 0, 0, 0.8);
+  box-shadow: var(--shadow-drawer);
   transform: translateX(100%);
   transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -604,7 +709,7 @@ select.set-input { cursor: pointer; appearance: none; background-image: linear-g
   transition: transform 0.15s, border-color 0.15s;
 }
 .set-swatch:hover { transform: scale(1.12); }
-.set-swatch.is-active { border-color: #fff; }
+.set-swatch.is-active { border-color: var(--text); }
 
 /* toggle switch */
 .set-switch { display: inline-flex; align-items: center; gap: 11px; cursor: pointer; user-select: none; }
