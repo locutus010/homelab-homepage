@@ -10,6 +10,8 @@ Plain **HTML / CSS / JavaScript** — no build step, no dependencies, no
 framework. Works straight from `file://`. An *optional* tiny Python server adds
 central, cross-device settings storage — but is never required.
 
+![The start page in its light theme: bookmark groups with status LEDs, clock, weather and WAN-IP pill, and the theme toggle above the settings gear](docs/screenshot.png)
+
 ## Run it
 
 **Simplest — open the file.** Just open `index.html` in your browser. Or serve
